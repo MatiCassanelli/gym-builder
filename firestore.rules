@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function ownsWrite(field) {
+      return request.resource.data[field].uid == request.auth.uid;
+    }
+
+    match /exercises/{exerciseId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && ownsWrite('createdBy') && ownsWrite('updatedBy');
+      allow update: if isSignedIn() && ownsWrite('updatedBy') && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isSignedIn();
+    }
+
+    match /routines/{routineId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && ownsWrite('createdBy') && ownsWrite('updatedBy');
+      allow update: if isSignedIn() && ownsWrite('updatedBy') && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isSignedIn();
+    }
+
+    // One-time seed lock sentinels (e.g. meta/exercisesSeed) — read to check, create once.
+    match /meta/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+    }
+
+    // One profesor doc per trainer, doc id == their auth uid. Any signed-in user can read
+    // the list (needed to show "who made this plan" on other trainers' routines), but a
+    // trainer can only ever create/update their own doc, and can't lie about their email.
+    match /profesores/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.mail == request.auth.token.email;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--color-stone-50);
+  color: var(--color-stone-900);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-stone-300);
+  border-radius: 4px;
+}
+
+select {
+  font-family: inherit;
+}
+
+a {
+  color: var(--color-red-600);
+}
+
+a:hover {
+  color: var(--color-red-800);
+}
+
+@media print {
+  /* Browsers drop background-colors/images by default when printing to save ink — without
+     this, every chip/accent-bar/day-header background (and the white text sitting on top
+     of the dark day header) silently vanishes even though it renders fine on screen. */
+  * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+
+  body {
+    background: white;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+
+  #print-area {
+    /* No `width` override here — the component's own `w-[800px] max-w-full` classes size
+       it, so the printed layout matches the on-screen preview instead of stretching to
+       the full page width. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0;
+    box-shadow: none !important;
+  }
+}
