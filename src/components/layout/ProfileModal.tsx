@@ -1,3 +1,4 @@
+import ChangePasswordForm from './ChangePasswordForm';
 import ProfileForm from './ProfileForm';
 import { upsertProfesor } from '../../services/profesoresService';
 import type { Profesor, ProfesorInput } from '../../types';
@@ -33,6 +34,7 @@ export default function ProfileModal({ uid, email, profesor, onClose }: ProfileM
           onSave={handleSave}
           onCancel={onClose}
         />
+        <ChangePasswordForm />
       </div>
     </div>
   );
