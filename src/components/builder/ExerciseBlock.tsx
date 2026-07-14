@@ -1,4 +1,4 @@
-import type { DragEvent } from 'react';
+import { useState, type DragEvent } from 'react';
 import { supersetVisual } from '../../lib/blocks';
 import type { Exercise, ExerciseBlock as BlockType, RoutineDay, RoutineEntry } from '../../types';
 
@@ -91,6 +91,7 @@ interface ExerciseBlockProps {
   onDragEnter: (index: number) => void;
   onDrop: (index: number) => void;
   onDragEnd: () => void;
+  onReorderEntries: (supersetId: string, fromIdx: number, toIdx: number) => void;
 }
 
 export default function ExerciseBlock({
@@ -106,7 +107,10 @@ export default function ExerciseBlock({
   onDragEnter,
   onDrop,
   onDragEnd,
+  onReorderEntries,
 }: ExerciseBlockProps) {
+  const [draggingRow, setDraggingRow] = useState<number | null>(null);
+  const [dragOverRow, setDragOverRow] = useState<number | null>(null);
   const dragProps = {
     draggable: true,
     onDragStart: () => onDragStart(blockIndex),
@@ -146,15 +150,53 @@ export default function ExerciseBlock({
                 <div className="flex-1 h-px bg-red-200" />
               </div>
             ) : null}
-            <EntryRow
-              entry={entry}
-              day={day}
-              exercises={exercises}
-              onUpdateField={onUpdateField}
-              onSetSupersetPartner={onSetSupersetPartner}
-              onDelete={onDelete}
-              rowClass={visual.rowClass}
-            />
+            <div
+              className={`flex items-center gap-1.5 ${dragOverRow === i && draggingRow !== i ? 'outline-2 outline-dashed outline-red-400 outline-offset-2 rounded-lg' : ''}`}
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                setDraggingRow(i);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDragEnter={(e) => {
+                e.stopPropagation();
+                setDragOverRow(i);
+              }}
+              onDrop={(e) => {
+                e.stopPropagation();
+                if (draggingRow !== null && draggingRow !== i) {
+                  onReorderEntries(block.supersetId, draggingRow, i);
+                }
+                setDraggingRow(null);
+                setDragOverRow(null);
+              }}
+              onDragEnd={(e) => {
+                e.stopPropagation();
+                setDraggingRow(null);
+                setDragOverRow(null);
+              }}
+            >
+              <div
+                className="cursor-grab text-xs text-stone-400 tracking-[-1px] select-none shrink-0"
+                title="Arrastrar para reordenar dentro de la superserie"
+              >
+                ⠿
+              </div>
+              <div className="flex-1">
+                <EntryRow
+                  entry={entry}
+                  day={day}
+                  exercises={exercises}
+                  onUpdateField={onUpdateField}
+                  onSetSupersetPartner={onSetSupersetPartner}
+                  onDelete={onDelete}
+                  rowClass={visual.rowClass}
+                />
+              </div>
+            </div>
           </div>
         ))}
       </div>

@@ -5,7 +5,7 @@ import DayTabs from './DayTabs';
 import ExerciseBlock from './ExerciseBlock';
 import ExercisePickerModal from './ExercisePickerModal';
 import RoutinePrintPreview from '../preview/RoutinePrintPreview';
-import { cleanSupersets, computeBlocks, reorderBlocks } from '../../lib/blocks';
+import { cleanSupersets, computeBlocks, reorderBlocks, reorderWithinSuperset } from '../../lib/blocks';
 import { newId } from '../../lib/ids';
 import { createRoutine, updateRoutine } from '../../services/routinesService';
 import type { Exercise, Profesor, Routine, RoutineDay, RoutineInput, UserRef } from '../../types';
@@ -194,6 +194,22 @@ export default function BuilderPage({
         entries = cleanSupersets(entries);
         return { ...day, entries };
       });
+      return { ...d, days };
+    });
+  }
+
+  function reorderEntriesInSuperset(
+    dayId: number,
+    supersetId: string,
+    fromIdx: number,
+    toIdx: number,
+  ) {
+    updateDraft((d) => {
+      const days = d.days.map((day) =>
+        day.id !== dayId
+          ? day
+          : { ...day, entries: reorderWithinSuperset(day, supersetId, fromIdx, toIdx) },
+      );
       return { ...d, days };
     });
   }
@@ -452,6 +468,9 @@ export default function BuilderPage({
                       setSupersetPartner(currentDay.id, entryId, partnerValue)
                     }
                     onDelete={(entryId) => removeEntry(currentDay.id, entryId)}
+                    onReorderEntries={(supersetId, fromIdx, toIdx) =>
+                      reorderEntriesInSuperset(currentDay.id, supersetId, fromIdx, toIdx)
+                    }
                     onDragStart={setDraggingIndex}
                     onDragEnter={setDragOverIndex}
                     onDrop={(idx) => onBlockDrop(currentDay.id, idx)}

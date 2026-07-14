@@ -52,6 +52,35 @@ export function reorderBlocks(day: RoutineDay, fromIdx: number, toIdx: number): 
   return newBlocks.reduce<RoutineEntry[]>((acc, b) => acc.concat(b.entries), []);
 }
 
+export function reorderWithinSuperset(
+  day: RoutineDay,
+  supersetId: string,
+  fromIdx: number,
+  toIdx: number,
+): RoutineEntry[] {
+  const groupIndices: number[] = [];
+  day.entries.forEach((e, i) => {
+    if (e.supersetId === supersetId) groupIndices.push(i);
+  });
+  if (
+    fromIdx < 0 ||
+    fromIdx >= groupIndices.length ||
+    toIdx < 0 ||
+    toIdx >= groupIndices.length ||
+    fromIdx === toIdx
+  ) {
+    return day.entries;
+  }
+  const group = groupIndices.map((i) => day.entries[i]);
+  const [moved] = group.splice(fromIdx, 1);
+  group.splice(toIdx, 0, moved);
+  const entries = [...day.entries];
+  groupIndices.forEach((entriesIdx, groupPos) => {
+    entries[entriesIdx] = group[groupPos];
+  });
+  return entries;
+}
+
 export interface SupersetVisual {
   containerClass: string;
   headerLabel: string;
