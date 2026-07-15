@@ -1,6 +1,6 @@
 import type { ExerciseBlock, RoutineDay, RoutineEntry } from '../types';
 
-const LETTERS = 'ABCDEFGH';
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 export function computeBlocks(day: RoutineDay): ExerciseBlock[] {
   const seen = new Set<string>();
@@ -83,17 +83,22 @@ export function reorderWithinSuperset(
 
 export interface SupersetVisual {
   containerClass: string;
-  headerLabel: string;
+  headerText: string;
   headerClass: string;
   rowClass: string;
   connectorLabel: string;
 }
 
+export function supersetHeaderText(letter: string): string {
+  return `Superserie ${letter} — sin pausa entre ejercicios`;
+}
+
 export function supersetVisual(letter: string): SupersetVisual {
   return {
-    containerClass: 'border-[1.5px] border-red-400 rounded-xl p-3 bg-red-50 flex flex-col',
-    headerLabel: `⚡ Superserie ${letter} — sin pausa entre ejercicios`,
-    headerClass: 'text-[11.5px] font-extrabold text-red-700 tracking-wide uppercase mb-2',
+    containerClass: 'border-[1.5px] border-red-400 rounded-xl overflow-hidden bg-red-50 flex flex-col',
+    headerText: supersetHeaderText(letter),
+    headerClass:
+      'flex items-center gap-1.5 bg-red-700 text-white text-[11.5px] font-extrabold tracking-wide uppercase px-3 py-2',
     rowClass: 'bg-white rounded-lg p-2.5 border border-stone-200',
     connectorLabel: '+',
   };

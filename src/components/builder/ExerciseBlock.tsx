@@ -135,70 +135,77 @@ export default function ExerciseBlock({
         {...dragProps}
         className={`${visual.containerClass} ${isDragOver ? 'outline-2 outline-dashed outline-red-600 outline-offset-[3px]' : ''}`}
       >
-        <div className="flex items-center gap-1.5">
-          {dragHandle}
-          <div className={visual.headerClass}>{visual.headerLabel}</div>
+        <div className={visual.headerClass}>
+          <div
+            className="cursor-grab text-white/70 tracking-[-1px] select-none shrink-0"
+            title="Arrastrar para reordenar"
+          >
+            ⠿⠿
+          </div>
+          <span>🔗 {visual.headerText}</span>
         </div>
-        {block.entries.map((entry, i) => (
-          <div key={entry.id} className="flex flex-col">
-            {i > 0 ? (
-              <div className="flex items-center gap-2 px-3.5 bg-red-50 my-1">
-                <div className="flex-1 h-px bg-red-200" />
-                <div className="text-[16px] font-extrabold text-red-600 shrink-0">
-                  {visual.connectorLabel}
+        <div className="p-3 flex flex-col gap-0">
+          {block.entries.map((entry, i) => (
+            <div key={entry.id} className="flex flex-col">
+              {i > 0 ? (
+                <div className="flex items-center gap-2 px-3.5 bg-red-50 my-1">
+                  <div className="flex-1 h-px bg-red-200" />
+                  <div className="text-[16px] font-extrabold text-red-600 shrink-0">
+                    {visual.connectorLabel}
+                  </div>
+                  <div className="flex-1 h-px bg-red-200" />
                 </div>
-                <div className="flex-1 h-px bg-red-200" />
-              </div>
-            ) : null}
-            <div
-              className={`flex items-center gap-1.5 ${dragOverRow === i && draggingRow !== i ? 'outline-2 outline-dashed outline-red-400 outline-offset-2 rounded-lg' : ''}`}
-              draggable
-              onDragStart={(e) => {
-                e.stopPropagation();
-                setDraggingRow(i);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDragEnter={(e) => {
-                e.stopPropagation();
-                setDragOverRow(i);
-              }}
-              onDrop={(e) => {
-                e.stopPropagation();
-                if (draggingRow !== null && draggingRow !== i) {
-                  onReorderEntries(block.supersetId, draggingRow, i);
-                }
-                setDraggingRow(null);
-                setDragOverRow(null);
-              }}
-              onDragEnd={(e) => {
-                e.stopPropagation();
-                setDraggingRow(null);
-                setDragOverRow(null);
-              }}
-            >
+              ) : null}
               <div
-                className="cursor-grab text-xs text-stone-400 tracking-[-1px] select-none shrink-0"
-                title="Arrastrar para reordenar dentro de la superserie"
+                className={`flex items-center gap-1.5 ${dragOverRow === i && draggingRow !== i ? 'outline-2 outline-dashed outline-red-400 outline-offset-2 rounded-lg' : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  setDraggingRow(i);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDragEnter={(e) => {
+                  e.stopPropagation();
+                  setDragOverRow(i);
+                }}
+                onDrop={(e) => {
+                  e.stopPropagation();
+                  if (draggingRow !== null && draggingRow !== i) {
+                    onReorderEntries(block.supersetId, draggingRow, i);
+                  }
+                  setDraggingRow(null);
+                  setDragOverRow(null);
+                }}
+                onDragEnd={(e) => {
+                  e.stopPropagation();
+                  setDraggingRow(null);
+                  setDragOverRow(null);
+                }}
               >
-                ⠿
-              </div>
-              <div className="flex-1">
-                <EntryRow
-                  entry={entry}
-                  day={day}
-                  exercises={exercises}
-                  onUpdateField={onUpdateField}
-                  onSetSupersetPartner={onSetSupersetPartner}
-                  onDelete={onDelete}
-                  rowClass={visual.rowClass}
-                />
+                <div
+                  className="cursor-grab text-xs text-stone-400 tracking-[-1px] select-none shrink-0"
+                  title="Arrastrar para reordenar dentro de la superserie"
+                >
+                  ⠿
+                </div>
+                <div className="flex-1">
+                  <EntryRow
+                    entry={entry}
+                    day={day}
+                    exercises={exercises}
+                    onUpdateField={onUpdateField}
+                    onSetSupersetPartner={onSetSupersetPartner}
+                    onDelete={onDelete}
+                    rowClass={visual.rowClass}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }

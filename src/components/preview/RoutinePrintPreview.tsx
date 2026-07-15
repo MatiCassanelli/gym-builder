@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { computeBlocks } from '../../lib/blocks';
+import { computeBlocks, supersetHeaderText } from '../../lib/blocks';
 import { accentBar, chipBg, chipText } from '../../lib/muscleGroups';
 import { formatDateEs, todayIso } from '../../lib/format';
 import type { Exercise, RoutineInput } from '../../types';
@@ -24,6 +24,7 @@ export default function RoutinePrintPreview({
         number: day.id,
         blocks: blocks.map((block) => ({
           isSuperset: block.type === 'superset',
+          letter: block.type === 'superset' ? block.letter : undefined,
           rows: block.entries.map((e) => {
             const ex = e.exerciseId ? exercisesMap.get(e.exerciseId) : undefined;
             return {
@@ -100,6 +101,9 @@ export default function RoutinePrintPreview({
                   key={block.rows[0].id}
                   className="border-[1.5px] border-red-600 rounded-lg overflow-hidden break-inside-avoid"
                 >
+                  <div className="bg-red-700 text-white text-[11.5px] font-extrabold tracking-wide uppercase px-3 py-2">
+                    🔗 {supersetHeaderText(block.letter ?? '?')}
+                  </div>
                   {block.rows.map((row, i) => (
                     <div key={row.id}>
                       {i > 0 ? (
