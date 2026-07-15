@@ -115,8 +115,14 @@ export default function ExerciseBlock({
     draggable: true,
     onDragStart: () => onDragStart(blockIndex),
     onDragOver: (e: DragEvent) => e.preventDefault(),
-    onDragEnter: () => onDragEnter(blockIndex),
-    onDrop: () => onDrop(blockIndex),
+    onDragEnter: () => {
+      if (draggingRow !== null) return;
+      onDragEnter(blockIndex);
+    },
+    onDrop: () => {
+      if (draggingRow !== null) return;
+      onDrop(blockIndex);
+    },
     onDragEnd: () => onDragEnd(),
   };
   const dragHandle = (
@@ -164,25 +170,30 @@ export default function ExerciseBlock({
                   setDraggingRow(i);
                 }}
                 onDragOver={(e) => {
+                  if (draggingRow === null) return;
                   e.preventDefault();
                   e.stopPropagation();
                 }}
                 onDragEnter={(e) => {
+                  if (draggingRow === null) return;
                   e.stopPropagation();
                   setDragOverRow(i);
                 }}
                 onDrop={(e) => {
+                  if (draggingRow === null) return;
                   e.stopPropagation();
-                  if (draggingRow !== null && draggingRow !== i) {
+                  if (draggingRow !== i) {
                     onReorderEntries(block.supersetId, draggingRow, i);
                   }
                   setDraggingRow(null);
                   setDragOverRow(null);
+                  onDragEnd();
                 }}
                 onDragEnd={(e) => {
                   e.stopPropagation();
                   setDraggingRow(null);
                   setDragOverRow(null);
+                  onDragEnd();
                 }}
               >
                 <div
