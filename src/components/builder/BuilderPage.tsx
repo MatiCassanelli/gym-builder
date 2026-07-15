@@ -8,6 +8,7 @@ import RoutinePrintPreview from '../preview/RoutinePrintPreview';
 import { cleanSupersets, computeBlocks, reorderBlocks, reorderWithinSuperset } from '../../lib/blocks';
 import { newId } from '../../lib/ids';
 import { createRoutine, updateRoutine } from '../../services/routinesService';
+import { exportRoutinePdf } from '../../lib/pdfExport';
 import type { Exercise, Profesor, Routine, RoutineDay, RoutineInput, UserRef } from '../../types';
 
 interface BuilderPageProps {
@@ -67,6 +68,7 @@ export default function BuilderPage({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Plain ref (not state) so it's always current the instant it's set — including right
   // before an imperative `navigate()` call, with no risk of the blocker below reading a
@@ -242,6 +244,15 @@ export default function BuilderPage({
     }
   }
 
+  async function handleExportPdf() {
+    setExporting(true);
+    try {
+      await exportRoutinePdf(draft, exercisesMap, authorName);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const saveButton = (
     <button
       type="button"
@@ -307,10 +318,11 @@ export default function BuilderPage({
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="bg-red-600 text-white font-bold text-sm px-5 py-3 rounded-lg cursor-pointer border-none"
+                onClick={() => void handleExportPdf()}
+                disabled={exporting || !previewAvailable}
+                className="bg-red-600 text-white font-bold text-sm px-5 py-3 rounded-lg cursor-pointer border-none disabled:opacity-60"
               >
-                ⬇ Exportar PDF
+                ⬇ {exporting ? 'Generando…' : 'Exportar PDF'}
               </button>
               {saveButton}
             </div>
