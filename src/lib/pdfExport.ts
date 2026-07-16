@@ -34,6 +34,63 @@ function lineHeight(sizePt: number): number {
   return sizePt * 0.3528 * 1.3;
 }
 
+const KAPPA = 0.5522847498307936;
+
+interface CornerRadii {
+  tl: number;
+  tr: number;
+  br: number;
+  bl: number;
+}
+
+// jsPDF's roundedRect only takes a single uniform radius. The day card needs the header's
+// top corners rounded while its bottom edge stays flush against the content box (and vice
+// versa for the content box), so we build the outline ourselves as a path of straight edges
+// and cubic-bezier quarter-circles (approximated with the standard kappa constant), one
+// corner at a time, skipping the curve entirely wherever that corner's radius is 0.
+function roundedRectCorners(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  { tl, tr, br, bl }: CornerRadii,
+  style: string,
+): void {
+  const segments: number[][] = [];
+  segments.push([w - tl - tr, 0]);
+  if (tr > 0) segments.push([KAPPA * tr, 0, tr, tr - KAPPA * tr, tr, tr]);
+  segments.push([0, h - tr - br]);
+  if (br > 0) segments.push([0, KAPPA * br, KAPPA * br - br, br, -br, br]);
+  segments.push([-(w - br - bl), 0]);
+  if (bl > 0) segments.push([-KAPPA * bl, 0, -bl, KAPPA * bl - bl, -bl, -bl]);
+  segments.push([0, -(h - bl - tl)]);
+  if (tl > 0) segments.push([0, -KAPPA * tl, tl - KAPPA * tl, -tl, tl, -tl]);
+  doc.lines(segments, x + tl, y, [1, 1], style, true);
+}
+
+// The content box below the day header mirrors the preview's `border border-t-0
+// rounded-b-[5px]`: a stroke down the left side, along the bottom (rounded at both bottom
+// corners), and up the right side — but deliberately no line across the top, since the
+// header's own fill already forms that edge.
+function drawDayContentBorder(
+  doc: jsPDF,
+  x: number,
+  yTop: number,
+  width: number,
+  height: number,
+  r: number,
+): void {
+  const segments = [
+    [0, height - r],
+    [0, KAPPA * r, r - KAPPA * r, r, r, r],
+    [width - 2 * r, 0],
+    [KAPPA * r, 0, r, KAPPA * r - r, r, -r],
+    [0, -(height - r)],
+  ];
+  doc.lines(segments, x, yTop, [1, 1], 'S', false);
+}
+
 interface PdfRow {
   id: string;
   name: string;
@@ -71,12 +128,12 @@ const NOTE_GAP_TOP = 1;
 const VIDEO_GAP_LEFT = 2;
 
 function layoutRow(doc: jsPDF, row: PdfRow, width: number): RowLayout {
-  const contentX0 = ACCENT_W + GAP_AFTER_ACCENT;
+  const contentX0 = ROW_PAD_X + ACCENT_W + GAP_AFTER_ACCENT;
   const availableNameWidth = width - contentX0 - RIGHT_COL_W - ROW_PAD_X;
 
   doc.setFont(FONT, 'bold');
   doc.setFontSize(VIDEO_SIZE);
-  const videoBadgeWidth = row.videoUrl ? doc.getTextWidth('VIDEO') + VIDEO_GAP_LEFT : 0;
+  const videoBadgeWidth = row.videoUrl ? doc.getTextWidth('Video') + VIDEO_GAP_LEFT : 0;
 
   doc.setFont(FONT, 'bold');
   doc.setFontSize(NAME_SIZE);
@@ -107,10 +164,12 @@ function drawRow(
   width: number,
   layout: RowLayout,
 ): void {
-  const contentX0 = x + ACCENT_W + GAP_AFTER_ACCENT;
+  const barX = x + ROW_PAD_X;
+  const contentX0 = barX + ACCENT_W + GAP_AFTER_ACCENT;
 
+  const barH = layout.height - ROW_PAD_TOP - ROW_PAD_BOTTOM;
   doc.setFillColor(row.accentBar);
-  doc.rect(x, y, ACCENT_W, layout.height, 'F');
+  doc.roundedRect(barX, y + ROW_PAD_TOP, ACCENT_W, barH, ACCENT_W / 2, ACCENT_W / 2, 'F');
 
   let cursorY = y + ROW_PAD_TOP + lineHeight(NAME_SIZE) * 0.75;
 
@@ -128,8 +187,8 @@ function drawRow(
     doc.setFontSize(VIDEO_SIZE);
     doc.setTextColor(COLOR.red600);
     const badgeX = contentX0 + lastLineWidth + VIDEO_GAP_LEFT;
-    doc.text('VIDEO', badgeX, lastLineY);
-    const badgeWidth = doc.getTextWidth('VIDEO');
+    doc.text('Video', badgeX, lastLineY);
+    const badgeWidth = doc.getTextWidth('Video');
     doc.setDrawColor(COLOR.red600);
     doc.setLineWidth(0.25);
     doc.line(badgeX, lastLineY + 0.6, badgeX + badgeWidth, lastLineY + 0.6);
@@ -194,6 +253,10 @@ function toRow(entry: {
 }
 
 const BOX_PAD = 1.5;
+const DAY_BOX_PAD = 3;
+const BLOCK_GAP = 2.5;
+const DAY_CARD_RADIUS = 1.5;
+const SUPERSET_RADIUS = 1.8;
 const CONNECTOR_H = 3.8;
 const HEADER_H = 6;
 const HEADER_FONT_SIZE = 7.5;
@@ -228,8 +291,37 @@ function drawBlock(
     return;
   }
 
+  const innerWidth = width - BOX_PAD * 2;
+  const innerX = x + BOX_PAD;
+  const rowsHeight = rowLayouts.reduce((sum, l) => sum + l.height, 0);
+  const connectorsHeight = CONNECTOR_H * (rows.length - 1);
+  const contentAreaHeight = rowsHeight + connectorsHeight + BOX_PAD * 2;
+  const totalHeight = HEADER_H + contentAreaHeight;
+
+  // The whole block gets one continuous light-red backdrop (not just each row), rounded
+  // only at the bottom since it sits flush under the header. Drawn before the header fill
+  // so the header's own rounded top corners paint over it cleanly.
+  doc.setFillColor(COLOR.red50);
+  roundedRectCorners(
+    doc,
+    x,
+    y + HEADER_H,
+    width,
+    contentAreaHeight,
+    { tl: 0, tr: 0, br: SUPERSET_RADIUS, bl: SUPERSET_RADIUS },
+    'F',
+  );
+
   doc.setFillColor(COLOR.red700);
-  doc.rect(x, y, width, HEADER_H, 'F');
+  roundedRectCorners(
+    doc,
+    x,
+    y,
+    width,
+    HEADER_H,
+    { tl: SUPERSET_RADIUS, tr: SUPERSET_RADIUS, br: 0, bl: 0 },
+    'F',
+  );
   doc.setFont(FONT, 'bold');
   doc.setFontSize(HEADER_FONT_SIZE);
   doc.setTextColor(COLOR.white);
@@ -239,8 +331,6 @@ function drawBlock(
     y + HEADER_H / 2 + HEADER_FONT_SIZE * 0.3528 * 0.35,
   );
 
-  const innerWidth = width - BOX_PAD * 2;
-  const innerX = x + BOX_PAD;
   let cursorY = y + HEADER_H + BOX_PAD;
 
   rows.forEach((row, i) => {
@@ -258,16 +348,21 @@ function drawBlock(
       doc.text('+', innerX + innerWidth / 2, lineY + 1, { align: 'center' });
       cursorY += CONNECTOR_H;
     }
-    doc.setFillColor(COLOR.red50);
-    doc.rect(innerX, cursorY, innerWidth, rowLayouts[i].height, 'F');
     drawRow(doc, row, innerX, cursorY, innerWidth, rowLayouts[i]);
     cursorY += rowLayouts[i].height;
   });
 
-  const totalHeight = cursorY + BOX_PAD - y;
   doc.setDrawColor(COLOR.red400);
   doc.setLineWidth(0.5);
-  doc.roundedRect(x, y, width, totalHeight, 1.5, 1.5, 'S');
+  roundedRectCorners(
+    doc,
+    x,
+    y,
+    width,
+    totalHeight,
+    { tl: SUPERSET_RADIUS, tr: SUPERSET_RADIUS, br: SUPERSET_RADIUS, bl: SUPERSET_RADIUS },
+    'S',
+  );
 }
 
 async function loadLogo(): Promise<{ dataUrl: string; width: number; height: number } | null> {
@@ -364,36 +459,68 @@ export async function buildRoutinePdf(
 
   y += 2;
 
+  let dayIndex = 0;
   for (const day of routine.days) {
     const blocks = computeBlocks(day);
     const blockRows = blocks.map((block) => block.entries.map((e) => toRow(e, exercisesMap)));
 
     const dayHeaderH = 7;
-    if (y + dayHeaderH + 10 > PAGE_HEIGHT - PAGE_MARGIN) {
+    const boxWidth = CONTENT_WIDTH - DAY_BOX_PAD * 2;
+    const boxX = PAGE_MARGIN + DAY_BOX_PAD;
+    const blockLayouts = blocks.map((block, i) => measureBlock(doc, block, blockRows[i], boxWidth));
+    const contentHeight =
+      blockLayouts.reduce((sum, b) => sum + b.height, 0) +
+      BLOCK_GAP * Math.max(blocks.length - 1, 0);
+    const boxHeight = DAY_BOX_PAD * 2 + contentHeight;
+    const dayTotalHeight = dayHeaderH + boxHeight;
+
+    // Every day after the first starts on a fresh page — mirrors the on-screen preview,
+    // where each day reliably filled a page on its own. The first day is left to flow
+    // naturally after the routine header since it may share the page with it.
+    if (dayIndex > 0) {
+      doc.addPage();
+      y = PAGE_MARGIN;
+    } else if (y + Math.min(dayTotalHeight, PAGE_HEIGHT - 2 * PAGE_MARGIN) > PAGE_HEIGHT - PAGE_MARGIN) {
       doc.addPage();
       y = PAGE_MARGIN;
     }
 
     doc.setFillColor(COLOR.stone950);
-    doc.rect(PAGE_MARGIN, y, CONTENT_WIDTH, dayHeaderH, 'F');
+    roundedRectCorners(
+      doc,
+      PAGE_MARGIN,
+      y,
+      CONTENT_WIDTH,
+      dayHeaderH,
+      { tl: DAY_CARD_RADIUS, tr: DAY_CARD_RADIUS, br: 0, bl: 0 },
+      'F',
+    );
     doc.setFont(FONT, 'bold');
     doc.setFontSize(10.5);
     doc.setTextColor(COLOR.white);
     doc.text(`DÍA ${day.id}`, PAGE_MARGIN + 3, y + dayHeaderH / 2 + 1.3);
-    y += dayHeaderH + 2.5;
 
-    blocks.forEach((block, i) => {
+    const boxTop = y + dayHeaderH;
+    let blockY = boxTop + DAY_BOX_PAD;
+
+    blockLayouts.forEach(({ height, rowLayouts }, i) => {
+      const block = blocks[i];
       const rows = blockRows[i];
-      const { height, rowLayouts } = measureBlock(doc, block, rows, CONTENT_WIDTH);
-      if (y + height > PAGE_HEIGHT - PAGE_MARGIN) {
+      if (blockY + height > PAGE_HEIGHT - PAGE_MARGIN) {
         doc.addPage();
-        y = PAGE_MARGIN;
+        blockY = PAGE_MARGIN;
       }
-      drawBlock(doc, block, rows, rowLayouts, PAGE_MARGIN, y, CONTENT_WIDTH);
-      y += height + 2;
+      drawBlock(doc, block, rows, rowLayouts, boxX, blockY, boxWidth);
+      blockY += height + BLOCK_GAP;
     });
 
-    y += 3;
+    const boxBottom = boxTop + boxHeight;
+    doc.setDrawColor(COLOR.stone300);
+    doc.setLineWidth(0.25);
+    drawDayContentBorder(doc, PAGE_MARGIN, boxTop, CONTENT_WIDTH, boxHeight, DAY_CARD_RADIUS);
+
+    y = boxBottom + 3;
+    dayIndex += 1;
   }
 
   const footerText =
