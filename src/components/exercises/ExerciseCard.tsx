@@ -1,4 +1,4 @@
-import { chipBg, chipText } from '../../lib/muscleGroups';
+import { chipBg, chipText } from '../../lib/colors';
 import type { Exercise } from '../../types';
 
 interface ExerciseCardProps {

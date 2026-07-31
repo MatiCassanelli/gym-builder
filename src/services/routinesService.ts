@@ -9,6 +9,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase/client';
+import { normalizeRoutine, normalizeRoutineInput } from '../lib/routineModel';
 import type { Routine, RoutineInput, UserRef } from '../types';
 
 const routinesCol = collection(db, 'routines');
@@ -16,7 +17,9 @@ const routinesCol = collection(db, 'routines');
 export function subscribeRoutines(callback: (routines: Routine[]) => void): () => void {
   const q = query(routinesCol, orderBy('endDate'));
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Routine));
+    // Normalizing here (rather than at each call site) means the rest of the app only ever
+    // sees the current entry shape — legacy "series x reps" docs are converted once, on read.
+    callback(snap.docs.map((d) => normalizeRoutine({ id: d.id, ...d.data() } as Routine)));
   });
 }
 
@@ -53,11 +56,7 @@ export async function deleteRoutine(id: string): Promise<void> {
 // tell apart from the original it was based on.
 export function buildRoutineCopy(routine: Routine): RoutineInput {
   return {
+    ...normalizeRoutineInput(routine),
     student: `${routine.student} (copia)`,
-    startDate: routine.startDate,
-    endDate: routine.endDate,
-    periodicity: routine.periodicity,
-    objective: routine.objective,
-    days: routine.days.map((d) => ({ id: d.id, entries: d.entries.map((e) => ({ ...e })) })),
   };
 }

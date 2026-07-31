@@ -2,14 +2,31 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import Breadcrumb from '../layout/Breadcrumb';
 import DayTabs from './DayTabs';
-import ExerciseBlock from './ExerciseBlock';
-import ExercisePickerModal from './ExercisePickerModal';
+import ExerciseBlock, { type SetField } from './ExerciseBlock';
+import ExercisePickerModal, { type PickerTarget } from './ExercisePickerModal';
+import WarmupEditor from './WarmupEditor';
 import RoutinePrintPreview from '../preview/RoutinePrintPreview';
 import { cleanSupersets, computeBlocks, reorderBlocks, reorderWithinSuperset } from '../../lib/blocks';
+import { MAX_PERIODICITY, WARMUP_DAY_ID, dayPalette } from '../../lib/colors';
 import { newId } from '../../lib/ids';
+import {
+  MAX_SETS,
+  blankRoutineInput,
+  makeSets,
+  normalizeRoutineInput,
+  DEFAULT_SET,
+} from '../../lib/routineModel';
 import { createRoutine, updateRoutine } from '../../services/routinesService';
 import { exportRoutinePdf } from '../../lib/pdfExport';
-import type { Exercise, Profesor, Routine, RoutineDay, RoutineInput, UserRef } from '../../types';
+import type {
+  Exercise,
+  Profesor,
+  Routine,
+  RoutineDay,
+  RoutineInput,
+  UserRef,
+  WarmupPhaseKey,
+} from '../../types';
 
 interface BuilderPageProps {
   routines: Routine[];
@@ -20,33 +37,11 @@ interface BuilderPageProps {
 
 type Mode = 'builder' | 'preview';
 
-function blankRoutine(): RoutineInput {
-  return {
-    student: '',
-    startDate: '',
-    endDate: '',
-    periodicity: 3,
-    objective: '',
-    days: [
-      { id: 1, entries: [] },
-      { id: 2, entries: [] },
-      { id: 3, entries: [] },
-    ],
-  };
-}
-
 function initialDraft(id: string | undefined, routines: Routine[]): RoutineInput {
-  if (!id) return blankRoutine();
+  if (!id) return blankRoutineInput();
   const found = routines.find((r) => r.id === id);
-  if (!found) return blankRoutine();
-  return {
-    student: found.student,
-    startDate: found.startDate,
-    endDate: found.endDate,
-    periodicity: found.periodicity,
-    objective: found.objective,
-    days: found.days.map((d) => ({ id: d.id, entries: d.entries.map((e) => ({ ...e })) })),
-  };
+  if (!found) return blankRoutineInput();
+  return normalizeRoutineInput(found);
 }
 
 export default function BuilderPage({
@@ -64,7 +59,8 @@ export default function BuilderPage({
   const [draft, setDraft] = useState<RoutineInput>(() => initialDraft(id, routines));
   const [mode, setMode] = useState<Mode>('builder');
   const [activeDay, setActiveDay] = useState(1);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  // Which list the exercise picker is filling: the active day, or one warm-up phase.
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -88,8 +84,11 @@ export default function BuilderPage({
     ? `${authorProfesor.nombre} ${authorProfesor.apellido}`.trim()
     : authorEmail;
 
+  const showWarmup = activeDay === WARMUP_DAY_ID;
   const currentDay: RoutineDay | undefined = draft.days.find((d) => d.id === activeDay);
   const blocks = useMemo(() => (currentDay ? computeBlocks(currentDay) : []), [currentDay]);
+  const palette = useMemo(() => dayPalette(activeDay), [activeDay]);
+  const dayIds = useMemo(() => draft.days.map((d) => d.id), [draft.days]);
 
   const totalEntries = draft.days.reduce((acc, d) => acc + d.entries.length, 0);
   const previewAvailable = !!draft.student && !!draft.startDate && !!draft.endDate && totalEntries > 0;
@@ -104,7 +103,6 @@ export default function BuilderPage({
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       if (!dirtyRef.current) return;
       e.preventDefault();
-      e.returnValue = '';
     }
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -137,14 +135,87 @@ export default function BuilderPage({
               ...day,
               entries: [
                 ...day.entries,
-                { id: newId(), exerciseId, series: '3', reps: '10', supersetId: null, note: '' },
+                { id: newId(), exerciseId, sets: makeSets(3), supersetId: null, note: '' },
               ],
             }
           : day,
       );
       return { ...d, days };
     });
-    setPickerOpen(false);
+    setPickerTarget(null);
+  }
+
+  function addWarmupItem(exerciseId: string, phase: WarmupPhaseKey) {
+    updateDraft((d) => ({
+      ...d,
+      warmup: {
+        ...d.warmup,
+        items: {
+          ...d.warmup.items,
+          [phase]: [...d.warmup.items[phase], { id: newId(), exerciseId, dose: '', note: '' }],
+        },
+      },
+    }));
+    setPickerTarget(null);
+  }
+
+  function handlePickerAdd(exerciseId: string) {
+    if (pickerTarget === null) return;
+    if (pickerTarget.kind === 'day') addEntryToDay(exerciseId);
+    else addWarmupItem(exerciseId, pickerTarget.phase);
+  }
+
+  function updateWarmupItem(
+    phase: WarmupPhaseKey,
+    itemId: string,
+    field: 'dose' | 'note',
+    value: string,
+  ) {
+    updateDraft((d) => ({
+      ...d,
+      warmup: {
+        ...d.warmup,
+        items: {
+          ...d.warmup.items,
+          [phase]: d.warmup.items[phase].map((it) =>
+            it.id === itemId ? { ...it, [field]: value } : it,
+          ),
+        },
+      },
+    }));
+  }
+
+  function removeWarmupItem(phase: WarmupPhaseKey, itemId: string) {
+    updateDraft((d) => ({
+      ...d,
+      warmup: {
+        ...d.warmup,
+        items: { ...d.warmup.items, [phase]: d.warmup.items[phase].filter((it) => it.id !== itemId) },
+      },
+    }));
+  }
+
+  // Each phase's items are their own array, so moving one is a plain adjacent-index swap.
+  function moveWarmupItem(phase: WarmupPhaseKey, itemId: string, direction: -1 | 1) {
+    updateDraft((d) => {
+      const items = [...d.warmup.items[phase]];
+      const index = items.findIndex((it) => it.id === itemId);
+      const target = index + direction;
+      if (index === -1 || target < 0 || target >= items.length) return d;
+      [items[index], items[target]] = [items[target], items[index]];
+      return { ...d, warmup: { ...d.warmup, items: { ...d.warmup.items, [phase]: items } } };
+    });
+  }
+
+  function setWarmupLabel(phase: WarmupPhaseKey, value: string) {
+    updateDraft((d) => ({
+      ...d,
+      warmup: { ...d.warmup, labels: { ...d.warmup.labels, [phase]: value } },
+    }));
+  }
+
+  function setWarmupNote(value: string) {
+    updateDraft((d) => ({ ...d, warmup: { ...d.warmup, note: value } }));
   }
 
   function removeEntry(dayId: number, entryId: string) {
@@ -158,10 +229,25 @@ export default function BuilderPage({
     });
   }
 
-  function updateEntryField(
+  function updateEntryNote(dayId: number, entryId: string, value: string) {
+    updateDraft((d) => {
+      const days = d.days.map((day) =>
+        day.id !== dayId
+          ? day
+          : {
+              ...day,
+              entries: day.entries.map((e) => (e.id === entryId ? { ...e, note: value } : e)),
+            },
+      );
+      return { ...d, days };
+    });
+  }
+
+  function updateSetValue(
     dayId: number,
     entryId: string,
-    field: 'series' | 'reps' | 'note',
+    setIndex: number,
+    field: SetField,
     value: string,
   ) {
     updateDraft((d) => {
@@ -170,7 +256,38 @@ export default function BuilderPage({
           ? day
           : {
               ...day,
-              entries: day.entries.map((e) => (e.id === entryId ? { ...e, [field]: value } : e)),
+              entries: day.entries.map((e) =>
+                e.id !== entryId
+                  ? e
+                  : {
+                      ...e,
+                      sets: e.sets.map((s, i) => (i === setIndex ? { ...s, [field]: value } : s)),
+                    },
+              ),
+            },
+      );
+      return { ...d, days };
+    });
+  }
+
+  // Growing the set count repeats the last set (the usual case: same prescription across
+  // series), shrinking just drops the trailing ones.
+  function setEntrySetCount(dayId: number, entryId: string, count: number) {
+    const target = Math.max(1, Math.min(count || 1, MAX_SETS));
+    updateDraft((d) => {
+      const days = d.days.map((day) =>
+        day.id !== dayId
+          ? day
+          : {
+              ...day,
+              entries: day.entries.map((e) => {
+                if (e.id !== entryId) return e;
+                const next = e.sets.slice(0, target);
+                while (next.length < target) {
+                  next.push({ ...(next[next.length - 1] ?? DEFAULT_SET) });
+                }
+                return { ...e, sets: next };
+              }),
             },
       );
       return { ...d, days };
@@ -260,7 +377,7 @@ export default function BuilderPage({
       disabled={saving}
       className="bg-red-600 text-white font-bold text-sm px-5 py-2.75 rounded-lg cursor-pointer whitespace-nowrap border-none disabled:opacity-60"
     >
-      💾 {saving ? 'Guardando…' : 'Guardar rutina'}
+      {saving ? 'Guardando…' : 'Guardar rutina'}
     </button>
   );
 
@@ -314,7 +431,7 @@ export default function BuilderPage({
                 onClick={() => setMode('builder')}
                 className="bg-white border-[1.5px] border-red-600 text-red-600 font-bold text-sm px-[18px] py-2.5 rounded-lg cursor-pointer whitespace-nowrap"
               >
-                ← Volver a la rutina
+                &lt; Volver a la rutina
               </button>
               <button
                 type="button"
@@ -322,7 +439,7 @@ export default function BuilderPage({
                 disabled={exporting || !previewAvailable}
                 className="bg-red-600 text-white font-bold text-sm px-5 py-3 rounded-lg cursor-pointer border-none disabled:opacity-60"
               >
-                ⬇ {exporting ? 'Generando…' : 'Exportar PDF'}
+                {exporting ? 'Generando…' : 'Exportar PDF'}
               </button>
               {saveButton}
             </div>
@@ -421,7 +538,7 @@ export default function BuilderPage({
               onChange={(e) => onPeriodicityChange(parseInt(e.target.value, 10))}
               className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm bg-white"
             >
-              {[1, 2, 3, 4, 5, 6, 7].map((p) => (
+              {Array.from({ length: MAX_PERIODICITY }, (_, i) => i + 1).map((p) => (
                 <option key={p} value={p}>
                   {p} día(s)
                 </option>
@@ -443,74 +560,95 @@ export default function BuilderPage({
 
         <div>
           <DayTabs
-            dayIds={draft.days.map((d) => d.id)}
+            dayIds={dayIds}
             activeDay={activeDay}
             onSelect={setActiveDay}
           />
 
-          <div className="flex flex-col gap-2.5">
-            {currentDay && currentDay.entries.length === 0 ? (
-              <div className="py-10 px-5 text-center text-stone-500 text-sm border-[1.5px] border-dashed border-stone-300 rounded-xl">
-                Todavía no agregaste ejercicios a este día.
-              </div>
-            ) : null}
-
-            {currentDay &&
-              blocks.map((block, blockIndex) => (
-                <div key={block.entries[0].id}>
-                  {blockIndex > 0 ? (
-                    <div className="flex items-center gap-2.5 my-0.5">
-                      <div className="flex-1 h-px border-t border-dashed border-stone-300" />
-                      <div className="text-[10.5px] font-bold text-stone-500 uppercase tracking-wide whitespace-nowrap">
-                        Descanso
-                      </div>
-                      <div className="flex-1 h-px border-t border-dashed border-stone-300" />
-                    </div>
-                  ) : null}
-                  <ExerciseBlock
-                    block={block}
-                    blockIndex={blockIndex}
-                    day={currentDay}
-                    exercises={exercisesMap}
-                    isDragOver={dragOverIndex === blockIndex && draggingIndex !== blockIndex}
-                    onUpdateField={(entryId, field, value) =>
-                      updateEntryField(currentDay.id, entryId, field, value)
-                    }
-                    onSetSupersetPartner={(entryId, partnerValue) =>
-                      setSupersetPartner(currentDay.id, entryId, partnerValue)
-                    }
-                    onDelete={(entryId) => removeEntry(currentDay.id, entryId)}
-                    onReorderEntries={(supersetId, fromIdx, toIdx) =>
-                      reorderEntriesInSuperset(currentDay.id, supersetId, fromIdx, toIdx)
-                    }
-                    onDragStart={setDraggingIndex}
-                    onDragEnter={setDragOverIndex}
-                    onDrop={(idx) => onBlockDrop(currentDay.id, idx)}
-                    onDragEnd={() => {
-                      setDraggingIndex(null);
-                      setDragOverIndex(null);
-                    }}
-                  />
+          {showWarmup ? (
+            <WarmupEditor
+              warmup={draft.warmup}
+              exercises={exercisesMap}
+              onLabelChange={setWarmupLabel}
+              onNoteChange={setWarmupNote}
+              onItemFieldChange={updateWarmupItem}
+              onMoveItem={moveWarmupItem}
+              onRemoveItem={removeWarmupItem}
+              onAddToPhase={(phase) => setPickerTarget({ kind: 'warmup', phase })}
+            />
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {currentDay && currentDay.entries.length === 0 ? (
+                <div className="py-10 px-5 text-center text-stone-500 text-sm border-[1.5px] border-dashed border-stone-300 rounded-xl">
+                  Todavía no agregaste ejercicios a este día.
                 </div>
-              ))}
+              ) : null}
 
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="self-start mt-1.5 px-[18px] py-2.75 rounded-lg border-[1.5px] border-dashed border-red-600 text-red-700 font-bold text-[13.5px] cursor-pointer bg-transparent"
-            >
-              + Agregar ejercicio a este día
-            </button>
-          </div>
+              {currentDay &&
+                blocks.map((block, blockIndex) => (
+                  <div key={block.entries[0].id}>
+                    {blockIndex > 0 ? (
+                      <div className="flex items-center gap-2.5 my-0.5">
+                        <div className="flex-1 h-px border-t border-dashed border-stone-300" />
+                        <div className="text-[10.5px] font-bold text-stone-500 uppercase tracking-wide whitespace-nowrap">
+                          Descanso
+                        </div>
+                        <div className="flex-1 h-px border-t border-dashed border-stone-300" />
+                      </div>
+                    ) : null}
+                    <ExerciseBlock
+                      block={block}
+                      blockIndex={blockIndex}
+                      day={currentDay}
+                      exercises={exercisesMap}
+                      palette={palette}
+                      isDragOver={dragOverIndex === blockIndex && draggingIndex !== blockIndex}
+                      onUpdateNote={(entryId, value) =>
+                        updateEntryNote(currentDay.id, entryId, value)
+                      }
+                      onUpdateSet={(entryId, setIndex, field, value) =>
+                        updateSetValue(currentDay.id, entryId, setIndex, field, value)
+                      }
+                      onSetCount={(entryId, count) =>
+                        setEntrySetCount(currentDay.id, entryId, count)
+                      }
+                      onSetSupersetPartner={(entryId, partnerValue) =>
+                        setSupersetPartner(currentDay.id, entryId, partnerValue)
+                      }
+                      onDelete={(entryId) => removeEntry(currentDay.id, entryId)}
+                      onReorderEntries={(supersetId, fromIdx, toIdx) =>
+                        reorderEntriesInSuperset(currentDay.id, supersetId, fromIdx, toIdx)
+                      }
+                      onDragStart={setDraggingIndex}
+                      onDragEnter={setDragOverIndex}
+                      onDrop={(idx) => onBlockDrop(currentDay.id, idx)}
+                      onDragEnd={() => {
+                        setDraggingIndex(null);
+                        setDragOverIndex(null);
+                      }}
+                    />
+                  </div>
+                ))}
+
+              <button
+                type="button"
+                onClick={() => setPickerTarget({ kind: 'day' })}
+                className="self-start mt-1.5 px-[18px] py-2.75 rounded-lg border-[1.5px] border-dashed border-red-600 text-red-700 font-bold text-[13.5px] cursor-pointer bg-transparent"
+              >
+                + Agregar ejercicio a este día
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {pickerOpen ? (
+      {pickerTarget !== null ? (
         <ExercisePickerModal
           exercises={exercises}
+          target={pickerTarget}
           activeDay={activeDay}
-          onAdd={addEntryToDay}
-          onClose={() => setPickerOpen(false)}
+          onAdd={handlePickerAdd}
+          onClose={() => setPickerTarget(null)}
         />
       ) : null}
       {unsavedChangesModal}

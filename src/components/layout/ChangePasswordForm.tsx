@@ -62,7 +62,7 @@ export default function ChangePasswordForm() {
         className="flex items-center justify-between text-[13.5px] font-bold cursor-pointer bg-transparent border-none p-0"
       >
         Cambiar contraseña
-        <span className="text-stone-400 text-xs">{expanded ? '▲' : '▼'}</span>
+        <span className="text-stone-400 text-xs">{expanded ? '-' : '+'}</span>
       </button>
 
       {expanded ? (

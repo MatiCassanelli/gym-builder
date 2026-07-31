@@ -123,7 +123,7 @@ interface AuthenticatedAppProps {
 function AuthenticatedApp({ uid, email, profesores, myProfesor }: AuthenticatedAppProps) {
   const currentUser = useMemo(() => ({ uid, email }), [uid, email]);
   const { routines, loading: routinesLoading } = useRoutines(true);
-  const { exercises, loading: exercisesLoading } = useExercises(true, uid, email);
+  const { exercises, loading: exercisesLoading } = useExercises(true, uid);
   const userLabel = (email[0] ?? '?').toUpperCase();
 
   const appData = useMemo<AppData>(

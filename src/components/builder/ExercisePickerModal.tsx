@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
-import { MUSCLE_GROUPS } from '../../types';
-import type { Exercise } from '../../types';
+import { MUSCLE_GROUPS, WARMUP_MUSCLE_GROUPS, WARMUP_PHASES } from '../../types';
+import type { Exercise, WarmupPhaseKey } from '../../types';
+
+const WARMUP_GROUPS = new Set(WARMUP_MUSCLE_GROUPS);
+
+// 'day' adds to the day being edited; 'warmup' adds to that phase of the warm-up block.
+export type PickerTarget = { kind: 'day' } | { kind: 'warmup'; phase: WarmupPhaseKey };
 
 interface ExercisePickerModalProps {
   exercises: Exercise[];
+  target: PickerTarget;
   activeDay: number;
   onAdd: (exerciseId: string) => void;
   onClose: () => void;
@@ -11,12 +17,24 @@ interface ExercisePickerModalProps {
 
 export default function ExercisePickerModal({
   exercises,
+  target,
   activeDay,
   onAdd,
   onClose,
 }: ExercisePickerModalProps) {
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('Todos');
+
+  const phaseTitle =
+    target.kind === 'warmup' ? WARMUP_PHASES.find((p) => p.key === target.phase)?.title : undefined;
+  const title = phaseTitle ? `Agregar a ${phaseTitle}` : `Elegir ejercicio — Día ${activeDay}`;
+
+  const orderedGroups = useMemo(() => {
+    if (!phaseTitle) return [...MUSCLE_GROUPS];
+    const warmupFirst = MUSCLE_GROUPS.filter((g) => WARMUP_GROUPS.has(g));
+    const rest = MUSCLE_GROUPS.filter((g) => !WARMUP_GROUPS.has(g));
+    return [...warmupFirst, ...rest];
+  }, [phaseTitle]);
 
   const groupedList = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -25,11 +43,11 @@ export default function ExercisePickerModal({
       const matchSearch = !q || e.name.toLowerCase().includes(q);
       return matchGroup && matchSearch;
     });
-    const groups = groupFilter === 'Todos' ? MUSCLE_GROUPS : [groupFilter];
+    const groups = groupFilter === 'Todos' ? orderedGroups : [groupFilter];
     return groups
       .map((g) => ({ group: g, items: filtered.filter((e) => e.group === g) }))
       .filter((g) => g.items.length > 0);
-  }, [exercises, search, groupFilter]);
+  }, [exercises, search, groupFilter, orderedGroups]);
 
   return (
     <div
@@ -41,13 +59,13 @@ export default function ExercisePickerModal({
         className="bg-white rounded-2xl w-[640px] max-w-[94vw] max-h-[80vh] p-[22px] flex flex-col gap-3.5"
       >
         <div className="flex items-center justify-between">
-          <div className="text-[17px] font-extrabold">Elegir ejercicio — Día {activeDay}</div>
+          <div className="text-[17px] font-extrabold">{title}</div>
           <button
             type="button"
             onClick={onClose}
             className="cursor-pointer text-lg text-stone-500 bg-transparent border-none"
           >
-            ✕
+            X
           </button>
         </div>
 
@@ -59,7 +77,7 @@ export default function ExercisePickerModal({
         />
 
         <div className="flex gap-1.5 flex-wrap">
-          {['Todos', ...MUSCLE_GROUPS].map((g) => {
+          {['Todos', ...orderedGroups].map((g) => {
             const active = groupFilter === g;
             return (
               <button

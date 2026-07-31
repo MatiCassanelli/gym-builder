@@ -53,14 +53,14 @@ export default function RoutineListItem({
       </div>
       <div className="text-right shrink-0">
         <div className="text-[12.5px] font-semibold text-stone-700">
-          {formatDateEs(routine.startDate)} → {formatDateEs(routine.endDate)}
+          {formatDateEs(routine.startDate)} - {formatDateEs(routine.endDate)}
         </div>
         <div
           className="mt-1 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold"
           style={{
             // Hardcoded (not var(--color-*)): this is a JS-computed style, not a literal
             // Tailwind class, so Tailwind's scanner never sees "red-100"/"red-800" as
-            // strings and won't emit those variables — see the note in muscleGroups.ts.
+            // strings and won't emit those variables — see the note in colors.ts.
             background: expired ? 'oklch(93.6% 0.032 17.717)' : 'oklch(92.3% 0.003 48.717)',
             color: expired ? 'oklch(44.4% 0.177 26.899)' : 'oklch(44.4% 0.011 73.639)',
           }}
@@ -85,7 +85,7 @@ export default function RoutineListItem({
           Eliminar
         </button>
       </div>
-      <div className="text-stone-400 text-lg shrink-0">›</div>
+      <div className="text-stone-400 text-lg shrink-0">&gt;</div>
     </div>
   );
 }

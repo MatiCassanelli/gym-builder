@@ -13,7 +13,7 @@ export default function Breadcrumb({ title, isPreview, onBuilderClick }: Breadcr
         to="/"
         className="flex items-center gap-1.5 text-[13.5px] font-semibold text-stone-500 no-underline"
       >
-        <span className="text-base">←</span> Rutinas
+        <span className="text-base">&lt;</span> Rutinas
       </Link>
       {isPreview && onBuilderClick ? (
         <>
