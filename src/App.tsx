@@ -57,13 +57,14 @@ function ExercisesRoute() {
   );
 }
 
-// BuilderPage reads its initial draft once, at mount, from `routines` — so this wrapper
-// waits until routines have loaded and remounts BuilderPage (via `key`) whenever the
-// routine id in the URL changes, instead of BuilderPage syncing itself via an effect.
+// BuilderPage reads its initial draft once, at mount, from `routines` and `exercises` (the
+// latter to preload default mobility items) — so this wrapper waits until both have loaded
+// and remounts BuilderPage (via `key`) whenever the routine id in the URL changes, instead
+// of BuilderPage syncing itself via an effect.
 function BuilderRoute() {
   const { id } = useParams<{ id: string }>();
-  const { routines, routinesLoading, exercises, profesores, currentUser } = useAppData();
-  if (routinesLoading) return <PageFallback />;
+  const { routines, routinesLoading, exercises, exercisesLoading, profesores, currentUser } = useAppData();
+  if (routinesLoading || exercisesLoading) return <PageFallback />;
   return (
     <BuilderPage
       key={id ?? 'new'}

@@ -37,10 +37,10 @@ interface BuilderPageProps {
 
 type Mode = 'builder' | 'preview';
 
-function initialDraft(id: string | undefined, routines: Routine[]): RoutineInput {
-  if (!id) return blankRoutineInput();
+function initialDraft(id: string | undefined, routines: Routine[], exercises: Exercise[]): RoutineInput {
+  if (!id) return blankRoutineInput(exercises);
   const found = routines.find((r) => r.id === id);
-  if (!found) return blankRoutineInput();
+  if (!found) return blankRoutineInput(exercises);
   return normalizeRoutineInput(found);
 }
 
@@ -56,7 +56,7 @@ export default function BuilderPage({
   // `routines` is guaranteed loaded before this component mounts (see BuilderRoute in App.tsx),
   // and this component remounts (via `key`) whenever `id` changes, so a lazy initializer is
   // enough here — no effect needed to sync the draft from async data.
-  const [draft, setDraft] = useState<RoutineInput>(() => initialDraft(id, routines));
+  const [draft, setDraft] = useState<RoutineInput>(() => initialDraft(id, routines, exercises));
   const [mode, setMode] = useState<Mode>('builder');
   const [activeDay, setActiveDay] = useState(1);
   // Which list the exercise picker is filling: the active day, or one warm-up phase.
@@ -120,7 +120,7 @@ export default function BuilderPage({
   function onPeriodicityChange(n: number) {
     updateDraft((d) => {
       const days = [...d.days];
-      while (days.length < n) days.push({ id: days.length + 1, entries: [] });
+      while (days.length < n) days.push({ id: days.length + 1, entries: [], note: '' });
       while (days.length > n) days.pop();
       return { ...d, periodicity: n, days };
     });
@@ -195,14 +195,22 @@ export default function BuilderPage({
     }));
   }
 
-  // Each phase's items are their own array, so moving one is a plain adjacent-index swap.
-  function moveWarmupItem(phase: WarmupPhaseKey, itemId: string, direction: -1 | 1) {
+  // Drag-and-drop reorder within a phase's item list — a plain splice since each phase's
+  // items are their own flat array.
+  function reorderWarmupItem(phase: WarmupPhaseKey, fromIdx: number, toIdx: number) {
     updateDraft((d) => {
       const items = [...d.warmup.items[phase]];
-      const index = items.findIndex((it) => it.id === itemId);
-      const target = index + direction;
-      if (index === -1 || target < 0 || target >= items.length) return d;
-      [items[index], items[target]] = [items[target], items[index]];
+      if (
+        fromIdx < 0 ||
+        fromIdx >= items.length ||
+        toIdx < 0 ||
+        toIdx >= items.length ||
+        fromIdx === toIdx
+      ) {
+        return d;
+      }
+      const [moved] = items.splice(fromIdx, 1);
+      items.splice(toIdx, 0, moved);
       return { ...d, warmup: { ...d.warmup, items: { ...d.warmup.items, [phase]: items } } };
     });
   }
@@ -225,6 +233,13 @@ export default function BuilderPage({
           ? day
           : { ...day, entries: cleanSupersets(day.entries.filter((e) => e.id !== entryId)) },
       );
+      return { ...d, days };
+    });
+  }
+
+  function updateDayNote(dayId: number, value: string) {
+    updateDraft((d) => {
+      const days = d.days.map((day) => (day.id !== dayId ? day : { ...day, note: value }));
       return { ...d, days };
     });
   }
@@ -572,12 +587,27 @@ export default function BuilderPage({
               onLabelChange={setWarmupLabel}
               onNoteChange={setWarmupNote}
               onItemFieldChange={updateWarmupItem}
-              onMoveItem={moveWarmupItem}
+              onReorderItem={reorderWarmupItem}
               onRemoveItem={removeWarmupItem}
               onAddToPhase={(phase) => setPickerTarget({ kind: 'warmup', phase })}
             />
           ) : (
             <div className="flex flex-col gap-2.5">
+              {currentDay ? (
+                <div className="bg-white border border-stone-200 rounded-xl p-4 flex flex-col gap-1.75">
+                  <label className="text-[12.5px] font-semibold text-stone-500">
+                    Nota del profesor para este día (opcional)
+                  </label>
+                  <textarea
+                    value={currentDay.note}
+                    onChange={(e) => updateDayNote(currentDay.id, e.target.value)}
+                    rows={2}
+                    placeholder="Ej: hoy priorizamos técnica, bajá el peso si sentís molestia..."
+                    className="px-3 py-2.5 rounded-lg border border-stone-300 text-[13px] leading-relaxed resize-y font-sans"
+                  />
+                </div>
+              ) : null}
+
               {currentDay && currentDay.entries.length === 0 ? (
                 <div className="py-10 px-5 text-center text-stone-500 text-sm border-[1.5px] border-dashed border-stone-300 rounded-xl">
                   Todavía no agregaste ejercicios a este día.

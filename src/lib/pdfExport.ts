@@ -379,6 +379,34 @@ const SUPERSET_RADIUS = 1.8;
 const CONNECTOR_H = 3;
 const SUPERSET_HEADER_H = 5;
 const SUPERSET_HEADER_SIZE = 6.5;
+const DAY_NOTE_SIZE = 6.5;
+const DAY_NOTE_PAD = 2.5;
+const DAY_NOTE_RADIUS = 1.2;
+
+function measureDayNote(doc: jsPDF, note: string, width: number): string[] {
+  if (!note) return [];
+  return splitLines(doc, note, width - DAY_NOTE_PAD * 2, DAY_NOTE_SIZE, 'italic');
+}
+
+function dayNoteHeight(lines: string[]): number {
+  if (!lines.length) return 0;
+  return lines.length * lineHeight(DAY_NOTE_SIZE, 1.35) + DAY_NOTE_PAD * 2;
+}
+
+function drawDayNote(
+  doc: jsPDF,
+  lines: string[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  palette: DayPalette,
+): void {
+  doc.setDrawColor(palette.border);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, width, height, DAY_NOTE_RADIUS, DAY_NOTE_RADIUS, 'S');
+  drawLines(doc, lines, x + DAY_NOTE_PAD, y + DAY_NOTE_PAD - 0.6, DAY_NOTE_SIZE, 'italic', NEUTRAL.text);
+}
 
 function measureBlock(doc: jsPDF, block: ExerciseBlock, rows: PdfRow[], width: number) {
   if (block.type === 'single') {
@@ -884,8 +912,11 @@ export async function buildRoutinePdf(
     const dayHeaderH = 7;
     const boxWidth = CONTENT_WIDTH - DAY_BOX_PAD * 2;
     const boxX = PAGE_MARGIN + DAY_BOX_PAD;
+    const noteLines = measureDayNote(doc, day.note, boxWidth);
+    const noteHeight = dayNoteHeight(noteLines);
     const blockLayouts = blocks.map((block, i) => measureBlock(doc, block, blockRows[i], boxWidth));
     const contentHeight =
+      (noteHeight ? noteHeight + BLOCK_GAP : 0) +
       blockLayouts.reduce((sum, b) => sum + b.height, 0) +
       BLOCK_GAP * Math.max(blocks.length - 1, 0);
     const boxHeight = DAY_BOX_PAD * 2 + contentHeight;
@@ -909,6 +940,11 @@ export async function buildRoutinePdf(
 
     const boxTop = flow.y + dayHeaderH;
     let blockY = boxTop + DAY_BOX_PAD;
+
+    if (noteHeight) {
+      drawDayNote(doc, noteLines, boxX, blockY, boxWidth, noteHeight, palette);
+      blockY += noteHeight + BLOCK_GAP;
+    }
 
     blockLayouts.forEach(({ height, rowLayouts }, i) => {
       if (blockY + height > PAGE_BOTTOM) {

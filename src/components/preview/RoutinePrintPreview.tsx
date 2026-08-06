@@ -139,6 +139,7 @@ export default function RoutinePrintPreview({
   const previewDays = useMemo(() => {
     return routine.days.map((day) => ({
       number: day.id,
+      note: day.note,
       palette: dayPalette(day.id),
       blocks: computeBlocks(day).map((block) => ({
         isSuperset: block.type === 'superset',
@@ -314,6 +315,14 @@ export default function RoutinePrintPreview({
             className="border-t-0 rounded-b-[5px] p-3 flex flex-col gap-2.25"
             style={{ border: `1px solid ${day.palette.border}`, borderTop: 'none' }}
           >
+            {day.note ? (
+              <div
+                className="rounded-lg px-3 py-2 text-[11px] leading-relaxed text-stone-700 italic"
+                style={{ border: `1px solid ${day.palette.border}` }}
+              >
+                {day.note}
+              </div>
+            ) : null}
             {day.blocks.map((block) =>
               block.isSuperset ? (
                 <div

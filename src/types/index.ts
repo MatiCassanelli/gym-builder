@@ -60,6 +60,8 @@ export interface RoutineEntry {
 export interface RoutineDay {
   id: number;
   entries: RoutineEntry[];
+  /** Optional trainer note for this specific day, printed before its first exercise. */
+  note: string;
 }
 
 export const WARMUP_PHASES = [
