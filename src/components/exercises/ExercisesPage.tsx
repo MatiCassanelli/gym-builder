@@ -9,9 +9,20 @@ interface ExercisesPageProps {
   exercises: Exercise[];
   loading: boolean;
   currentUser: UserRef;
+  /**
+   * The library is deliberately shared by every gym, so any trainer can add and correct a
+   * movement — but only a site admin can delete one, since a removal would silently break
+   * routines belonging to gyms the deleter can't even see.
+   */
+  canDelete: boolean;
 }
 
-export default function ExercisesPage({ exercises, loading, currentUser }: ExercisesPageProps) {
+export default function ExercisesPage({
+  exercises,
+  loading,
+  currentUser,
+  canDelete,
+}: ExercisesPageProps) {
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState<string>('Todos');
   const [formOpen, setFormOpen] = useState(false);
@@ -66,6 +77,9 @@ export default function ExercisesPage({ exercises, loading, currentUser }: Exerc
           <div className="text-stone-500 text-sm mt-1">
             Cargá movimientos una vez y reutilizalos en todas las rutinas.
           </div>
+          <div className="text-stone-400 text-[12.5px] mt-0.5">
+            Esta biblioteca es común a todos los gimnasios.
+          </div>
         </div>
         <button
           type="button"
@@ -115,7 +129,13 @@ export default function ExercisesPage({ exercises, loading, currentUser }: Exerc
       ) : (
         <div className="grid [content-visibility:auto] gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
           {visibleExercises.map((ex) => (
-            <ExerciseCard key={ex.id} exercise={ex} onEdit={openEdit} onDelete={handleDelete} />
+            <ExerciseCard
+              key={ex.id}
+              exercise={ex}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              canDelete={canDelete}
+            />
           ))}
         </div>
       )}

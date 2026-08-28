@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { resetPassword, signIn } from '../../services/authService';
+import { APP_NAME } from '../../lib/branding';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -42,14 +43,8 @@ export default function LoginScreen() {
         onSubmit={handleSubmit}
         className="w-full max-w-[380px] bg-white border border-stone-200 rounded-2xl p-8 flex flex-col gap-5"
       >
-        <div className="flex items-center gap-2.5">
-          <img
-            src="/forge-logo.png"
-            alt="Forge Gym & Box"
-            className="w-[34px] h-[34px] rounded-[9px] object-cover"
-          />
-          <div className="font-extrabold text-lg tracking-tight">Gym Builder</div>
-        </div>
+        {/* Neutral mark: which gym this account belongs to isn't known until it signs in. */}
+        <div className="font-extrabold text-lg tracking-tight">{APP_NAME}</div>
 
         <div className="flex flex-col gap-1">
           <div className="text-sm text-stone-500">Iniciá sesión con tu cuenta.</div>

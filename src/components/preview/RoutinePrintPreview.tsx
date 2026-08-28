@@ -18,12 +18,15 @@ import {
   WARMUP_SUBTITLE,
   WARMUP_TITLE,
 } from '../../lib/planGuide';
+import type { Branding } from '../../lib/branding';
 import type { Exercise, RoutineInput, SetSpec } from '../../types';
 
 interface RoutinePrintPreviewProps {
   routine: RoutineInput;
   exercisesMap: Map<string, Exercise>;
   authorName?: string;
+  /** Logo and name of the gym this routine belongs to — printed on the plan's header. */
+  gym: Branding;
 }
 
 interface PreviewRow {
@@ -135,6 +138,7 @@ export default function RoutinePrintPreview({
   routine,
   exercisesMap,
   authorName,
+  gym,
 }: RoutinePrintPreviewProps) {
   const previewDays = useMemo(() => {
     return routine.days.map((day) => ({
@@ -171,7 +175,12 @@ export default function RoutinePrintPreview({
       style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}
     >
       <div className="flex justify-between items-start border-b-2 border-stone-900 pb-4 mb-5">
-        <img src="/forge-logo.png" alt="Forge Gym & Box" className="h-16 w-16 object-contain" />
+        <div className="flex items-center gap-3 min-w-0">
+          {gym.logo ? (
+            <img src={gym.logo} alt={gym.nombre} className="h-16 w-16 object-contain" />
+          ) : null}
+          <div className="font-extrabold text-lg tracking-tight truncate">{gym.nombre}</div>
+        </div>
         <div className="text-right text-xs text-stone-500">
           <div>Emitido: {formatDateEs(todayIso())}</div>
           {authorName ? (

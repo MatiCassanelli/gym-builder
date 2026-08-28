@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+import { jsPDF, AcroFormTextField } from 'jspdf';
 import { computeBlocks, supersetHeaderText } from './blocks';
 import { ACCENT, NEUTRAL, WARMUP_PALETTE, dayPalette } from './colors';
 import type { DayPalette } from './colors';
@@ -9,6 +9,7 @@ import {
   type WarmupPhaseView,
 } from './routineModel';
 import { formatDateEs, todayIso } from './format';
+import type { Branding } from './branding';
 import {
   PLAN_FOOTER_NOTE,
   PLAN_GUIDE_ITEMS,
@@ -197,8 +198,9 @@ const ROW_PAD = 2;
 const CHIP_PAD_X = 1.2;
 const CHIP_GAP_TOP = 1;
 const MATRIX_ROW_H = 4.2;
-const MATRIX_ROWS = 4; // "Serie" header + reps + rir + pausa
+const MATRIX_ROWS = 5; // "Serie" header + reps + rir + pausa + peso
 const MATRIX_H = MATRIX_ROW_H * MATRIX_ROWS;
+const PESO_FIELD_PAD = 0.6;
 
 interface RowLayout {
   height: number;
@@ -327,6 +329,27 @@ function drawExerciseRow(
       );
     }
   });
+
+  // --- "peso" row: a blank fillable field per set, left for the student to log the load
+  // they actually used, rather than a value the trainer sets ahead of time ---
+  const pesoRowY = y + MATRIX_ROW_H * (SET_FIELD_ROWS.length + 1);
+  doc.setFont(FONT, 'bold');
+  doc.setFontSize(MATRIX_LABEL_SIZE);
+  doc.setTextColor(NEUTRAL.ink);
+  doc.text('PESO', matrixX + 1.5, pesoRowY + centeredBaseline(MATRIX_ROW_H, MATRIX_LABEL_SIZE));
+  for (let i = 0; i < row.sets.length; i += 1) {
+    const field = new AcroFormTextField();
+    field.fieldName = `peso_${row.id}_${i}`;
+    field.x = matrixX + colW * (i + 1) + PESO_FIELD_PAD;
+    field.y = pesoRowY + PESO_FIELD_PAD;
+    field.width = colW - PESO_FIELD_PAD * 2;
+    field.height = MATRIX_ROW_H - PESO_FIELD_PAD * 2;
+    field.fontSize = MATRIX_VALUE_SIZE;
+    field.textAlign = 'center';
+    field.maxLength = 6;
+    field.value = '';
+    doc.addField(field);
+  }
 
   // --- right column: video link + note ---
   const rightX = x + leftW + midW;
@@ -804,17 +827,13 @@ function drawWarmup(flow: Flow, phases: WarmupPhaseView[], note: string): void {
   }
 }
 
-async function loadLogo(): Promise<{ dataUrl: string; width: number; height: number } | null> {
+// The gym's logo arrives as a data URL straight off its Firestore doc; jsPDF still needs its
+// pixel dimensions to scale it without distorting, hence the decode round-trip.
+async function measureLogo(
+  dataUrl: string | null,
+): Promise<{ dataUrl: string; width: number; height: number } | null> {
+  if (!dataUrl) return null;
   try {
-    const res = await fetch('/forge-logo.png');
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
     const dims = await new Promise<{ width: number; height: number }>((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
@@ -831,17 +850,30 @@ export async function buildRoutinePdf(
   routine: RoutineInput,
   exercisesMap: Map<string, Exercise>,
   authorName?: string,
+  gym: Branding = { nombre: '', logo: null },
 ): Promise<jsPDF> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const flow = new Flow(doc);
 
-  const logo = await loadLogo();
+  const logo = await measureLogo(gym.logo);
   const logoBoxSize = 16;
   let headerRightBottom: number;
+  let headerLeftX = PAGE_MARGIN;
 
   if (logo) {
     const scale = Math.min(logoBoxSize / logo.width, logoBoxSize / logo.height);
-    doc.addImage(logo.dataUrl, PAGE_MARGIN, flow.y, logo.width * scale, logo.height * scale);
+    const drawnWidth = logo.width * scale;
+    doc.addImage(logo.dataUrl, PAGE_MARGIN, flow.y, drawnWidth, logo.height * scale);
+    headerLeftX += drawnWidth + 4;
+  }
+
+  // The gym's name sits beside its logo, so a plan is identifiable even when printed by a
+  // gym that hasn't uploaded one.
+  if (gym.nombre) {
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(NEUTRAL.ink);
+    doc.text(pdfSafe(gym.nombre), headerLeftX, flow.y + logoBoxSize / 2 + 1.5);
   }
 
   doc.setFont(FONT, 'normal');
@@ -982,8 +1014,9 @@ export async function exportRoutinePdf(
   routine: RoutineInput,
   exercisesMap: Map<string, Exercise>,
   authorName?: string,
+  gym?: Branding,
 ): Promise<void> {
-  const doc = await buildRoutinePdf(routine, exercisesMap, authorName);
+  const doc = await buildRoutinePdf(routine, exercisesMap, authorName, gym);
   const safeStudent = (routine.student || 'alumno').trim().replace(/[^\p{L}\p{N}]+/gu, '_');
   doc.save(`Rutina_${safeStudent}_${todayIso()}.pdf`);
 }

@@ -18,8 +18,10 @@ import {
 } from '../../lib/routineModel';
 import { createRoutine, updateRoutine } from '../../services/routinesService';
 import { exportRoutinePdf } from '../../lib/pdfExport';
+import { gymBranding } from '../../lib/branding';
 import type {
   Exercise,
+  Gym,
   Profesor,
   Routine,
   RoutineDay,
@@ -33,6 +35,9 @@ interface BuilderPageProps {
   exercises: Exercise[];
   profesores: Profesor[];
   currentUser: UserRef;
+  gyms: Gym[];
+  /** null only for a site admin looking across every gym at once. */
+  activeGymId: string | null;
 }
 
 type Mode = 'builder' | 'preview';
@@ -49,6 +54,8 @@ export default function BuilderPage({
   exercises,
   profesores,
   currentUser,
+  gyms,
+  activeGymId,
 }: BuilderPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -83,6 +90,11 @@ export default function BuilderPage({
   const authorName = authorProfesor
     ? `${authorProfesor.nombre} ${authorProfesor.apellido}`.trim()
     : authorEmail;
+
+  // An existing routine keeps the gym it was created in — editing it from an admin's other
+  // scope must never move it. A new one lands in whichever gym is currently in view.
+  const routineGymId = originalRoutine ? originalRoutine.gymId : activeGymId;
+  const routineGym = gyms.find((g) => g.id === routineGymId) ?? null;
 
   const showWarmup = activeDay === WARMUP_DAY_ID;
   const currentDay: RoutineDay | undefined = draft.days.find((d) => d.id === activeDay);
@@ -366,8 +378,8 @@ export default function BuilderPage({
     try {
       if (id) {
         await updateRoutine(id, draft, currentUser);
-      } else {
-        await createRoutine(draft, currentUser);
+      } else if (routineGymId) {
+        await createRoutine(draft, routineGymId, currentUser);
       }
       dirtyRef.current = false;
       navigate('/');
@@ -379,11 +391,15 @@ export default function BuilderPage({
   async function handleExportPdf() {
     setExporting(true);
     try {
-      await exportRoutinePdf(draft, exercisesMap, authorName);
+      await exportRoutinePdf(draft, exercisesMap, authorName, gymBranding(routineGym));
     } finally {
       setExporting(false);
     }
   }
+
+  // A routine has to belong to exactly one gym, and the admin's cross-gym scope doesn't name
+  // one — so creating from there is blocked until they pick a gym in the top bar.
+  const sinGimnasio = !id && !routineGymId;
 
   const saveButton = (
     <button
@@ -467,10 +483,29 @@ export default function BuilderPage({
           ) : null}
 
           <div className="bg-stone-200 rounded-2xl p-7 flex justify-center">
-            <RoutinePrintPreview routine={draft} exercisesMap={exercisesMap} authorName={authorName} />
+            <RoutinePrintPreview
+              routine={draft}
+              exercisesMap={exercisesMap}
+              authorName={authorName}
+              gym={gymBranding(routineGym)}
+            />
           </div>
         </div>
         {unsavedChangesModal}
+      </>
+    );
+  }
+
+  if (sinGimnasio) {
+    return (
+      <>
+        <Breadcrumb title={builderTitle} />
+        <div className="flex-1 p-8 max-w-[720px] w-full mx-auto">
+          <div className="px-[18px] py-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-[13.5px] font-semibold">
+            Elegí un gimnasio en la barra de arriba antes de crear la rutina: cada rutina
+            pertenece a un único gimnasio.
+          </div>
+        </div>
       </>
     );
   }

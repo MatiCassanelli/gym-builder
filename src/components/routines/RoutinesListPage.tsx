@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RoutineListItem from './RoutineListItem';
 import { deleteRoutine } from '../../services/routinesService';
+import { useAppData } from '../../context/AppDataContext';
 import type { Profesor, Routine, UserRef } from '../../types';
 
 interface RoutinesListPageProps {
@@ -33,9 +34,14 @@ export default function RoutinesListPage({
   profesores,
 }: RoutinesListPageProps) {
   const navigate = useNavigate();
+  const { gyms, activeGymId, isAdmin } = useAppData();
   const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [selectedProfesorId, setSelectedProfesorId] = useState<string>(currentUser.uid);
+  // A trainer lands on their own plans; a site admin authors none, so they land on the
+  // whole list instead of on an empty "Mis rutinas".
+  const [selectedProfesorId, setSelectedProfesorId] = useState<string>(
+    isAdmin ? 'all' : currentUser.uid,
+  );
   const [search, setSearch] = useState('');
 
   // Own profile pinned first (labeled "(yo)"), the rest of the shared profesores table
@@ -58,6 +64,15 @@ export default function RoutinesListPage({
 
   const selectedProfesor = profesores.find((p) => p.id === selectedProfesorId);
   const title = titleFor(selectedProfesorId, currentUser.uid, selectedProfesor);
+
+  // Only the admin's "todos los gimnasios" scope mixes gyms in one list; everywhere else
+  // every row belongs to the gym already named in the top bar, so labelling each one would
+  // just be noise.
+  const showGymBadge = isAdmin && activeGymId === null;
+  const gymNames = useMemo(
+    () => new Map(gyms.map((g) => [g.id, g.nombre])),
+    [gyms],
+  );
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -104,6 +119,7 @@ export default function RoutinesListPage({
             routine={r}
             currentUser={currentUser}
             onRequestDelete={setRoutineToDelete}
+            gymNombre={showGymBadge ? (gymNames.get(r.gymId) ?? 'Sin gimnasio') : null}
           />
         ))}
       </div>

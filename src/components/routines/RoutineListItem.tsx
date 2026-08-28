@@ -8,12 +8,15 @@ interface RoutineListItemProps {
   routine: Routine;
   currentUser: UserRef;
   onRequestDelete: (routine: Routine) => void;
+  /** Set only in the admin's cross-gym view, where rows from several gyms are mixed. */
+  gymNombre: string | null;
 }
 
 export default function RoutineListItem({
   routine,
   currentUser,
   onRequestDelete,
+  gymNombre,
 }: RoutineListItemProps) {
   const navigate = useNavigate();
   const [copying, setCopying] = useState(false);
@@ -23,7 +26,7 @@ export default function RoutineListItem({
     e.stopPropagation();
     setCopying(true);
     try {
-      const newId = await createRoutine(buildRoutineCopy(routine), currentUser);
+      const newId = await createRoutine(buildRoutineCopy(routine), routine.gymId, currentUser);
       navigate(`/routines/${newId}/edit`);
     } finally {
       setCopying(false);
@@ -44,7 +47,14 @@ export default function RoutineListItem({
         {initialsOf(routine.student)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-[15px]">{routine.student || 'Sin nombre'}</div>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="font-bold text-[15px] truncate">{routine.student || 'Sin nombre'}</div>
+          {gymNombre ? (
+            <span className="shrink-0 px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[11px] font-bold">
+              {gymNombre}
+            </span>
+          ) : null}
+        </div>
         <div className="text-[12.5px] text-stone-500 mt-0.5">
           Creada el {formatDateEs(new Date(routine.createdAt).toISOString().slice(0, 10))} ·{' '}
           {routine.periodicity}x/semana

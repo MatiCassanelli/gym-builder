@@ -7,6 +7,7 @@ import {
   orderBy,
   query,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from '../firebase/client';
 import { normalizeRoutine, normalizeRoutineInput } from '../lib/routineModel';
@@ -14,19 +15,42 @@ import type { Routine, RoutineInput, UserRef } from '../types';
 
 const routinesCol = collection(db, 'routines');
 
-export function subscribeRoutines(callback: (routines: Routine[]) => void): () => void {
-  const q = query(routinesCol, orderBy('endDate'));
-  return onSnapshot(q, (snap) => {
-    // Normalizing here (rather than at each call site) means the rest of the app only ever
-    // sees the current entry shape — legacy "series x reps" docs are converted once, on read.
-    callback(snap.docs.map((d) => normalizeRoutine({ id: d.id, ...d.data() } as Routine)));
-  });
+/**
+ * Live routines for one gym. `gymId: null` means "every gym" and is only permitted for site
+ * admins: firestore.rules rejects the unfiltered query for anyone else, so a trainer can
+ * never widen their own scope by dropping the filter.
+ */
+export function subscribeRoutines(
+  gymId: string | null,
+  callback: (routines: Routine[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const q =
+    gymId === null
+      ? query(routinesCol, orderBy('endDate'))
+      : query(routinesCol, where('gymId', '==', gymId), orderBy('endDate'));
+  return onSnapshot(
+    q,
+    (snap) => {
+      // Normalizing here (rather than at each call site) means the rest of the app only ever
+      // sees the current entry shape — legacy "series x reps" docs are converted once, on read.
+      callback(snap.docs.map((d) => normalizeRoutine({ id: d.id, ...d.data() } as Routine)));
+    },
+    onError,
+  );
 }
 
-export async function createRoutine(input: RoutineInput, by: UserRef): Promise<string> {
+// gymId is passed separately from the editable draft: it's assigned once, at creation, and
+// is never something the builder form can change afterwards.
+export async function createRoutine(
+  input: RoutineInput,
+  gymId: string,
+  by: UserRef,
+): Promise<string> {
   const now = Date.now();
   const ref = await addDoc(routinesCol, {
     ...input,
+    gymId,
     createdBy: by,
     createdAt: now,
     updatedBy: by,

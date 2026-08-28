@@ -6,39 +6,134 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // The signed-in user's access record. profesores/{uid} is the single source of truth for
+    // both which gym they belong to and what they're allowed to do — repeated get() calls to
+    // the same path are cached within one request, so this stays a single document read.
+    function prof() {
+      return get(/databases/$(database)/documents/profesores/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/profesores/$(request.auth.uid));
+    }
+
+    // Site admin: sees and edits every gym. Deliberately not tied to any single gymId.
+    function isAdmin() {
+      return hasProfile() && prof().rol == 'admin';
+    }
+
+    function myGymId() {
+      return prof().gymId;
+    }
+
+    // The tenant check. Everything a non-admin can touch has to carry their own gymId.
+    function inMyGym(gymId) {
+      return hasProfile() && gymId != null && myGymId() == gymId;
+    }
+
+    function isCoordinadorOf(gymId) {
+      return hasProfile() && prof().rol == 'coordinador' && myGymId() == gymId;
+    }
+
     function ownsWrite(field) {
       return request.resource.data[field].uid == request.auth.uid;
     }
 
-    match /exercises/{exerciseId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && ownsWrite('createdBy') && ownsWrite('updatedBy');
-      allow update: if isSignedIn() && ownsWrite('updatedBy') && request.resource.data.createdBy == resource.data.createdBy;
-      allow delete: if isSignedIn();
+    // A gym's identity. `get` is reachable by its own members (they need their name and logo
+    // for the UI and for the PDF header); only an admin may `list`, so a trainer has no way
+    // to discover that any other gym exists.
+    //
+    // A coordinador may edit their own gym's name and logo — and nothing else, which is why
+    // the field set is pinned here. Creating and deleting a gym is the one power that stays
+    // exclusively the admin's: a coordinador running a gym must never be able to destroy it
+    // (and with it everyone else's access) on their own.
+    match /gyms/{gymId} {
+      allow get: if isAdmin() || inMyGym(gymId);
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isCoordinadorOf(gymId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['nombre', 'logo', 'updatedAt']));
     }
 
+    // The exercise library is shared across gyms on purpose: any trainer can add a movement
+    // or correct one. Deleting is admin-only — a removal would silently break routines
+    // belonging to gyms the deleter can't even see.
+    match /exercises/{exerciseId} {
+      allow read: if hasProfile();
+      allow create: if hasProfile() && ownsWrite('createdBy') && ownsWrite('updatedBy');
+      allow update: if hasProfile() && ownsWrite('updatedBy')
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isAdmin();
+    }
+
+    // Routines never leave their gym. Reads are per-document, which means a `list` only
+    // succeeds when the client's query pins gymId to the trainer's own (see
+    // subscribeRoutines) — dropping the filter fails the whole query rather than widening it.
+    // gymId is also frozen on update, so a routine can't be smuggled into another gym.
     match /routines/{routineId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && ownsWrite('createdBy') && ownsWrite('updatedBy');
-      allow update: if isSignedIn() && ownsWrite('updatedBy') && request.resource.data.createdBy == resource.data.createdBy;
-      allow delete: if isSignedIn();
+      allow read: if isAdmin() || inMyGym(resource.data.gymId);
+      allow create: if (isAdmin() || inMyGym(request.resource.data.gymId))
+        && ownsWrite('createdBy') && ownsWrite('updatedBy');
+      allow update: if (isAdmin() || inMyGym(resource.data.gymId))
+        && request.resource.data.gymId == resource.data.gymId
+        && ownsWrite('updatedBy')
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isAdmin() || inMyGym(resource.data.gymId);
+    }
+
+    // One profesor doc per trainer, doc id == their auth uid.
+    //
+    // Trainers see the roster of their own gym (needed to show "who made this plan"), and
+    // always their own doc — which has to be readable before their gymId is even known, so
+    // it's granted by uid rather than by gym.
+    //
+    // Authority is strictly nested: admin > coordinador > profesor. An admin can do anything
+    // a coordinador can, plus what only they can; a coordinador can do anything a profesor
+    // can, within their own gym.
+    //
+    // A coordinador staffs their own gym: they create trainers (always at rol 'profesor' —
+    // that pin is what stops them minting an admin) and remove them. Every one of their
+    // powers is scoped to rows that are `rol: 'profesor'` today, which has two consequences
+    // worth stating out loud: they can never touch a fellow coordinador, and they can never
+    // remove or demote themselves. So a gym can't be left leaderless, and nobody can seize
+    // sole control of a gym by clearing out the other coordinadores.
+    //
+    // Promotion is therefore a one-way street for a coordinador: profesor -> coordinador,
+    // never back. Only an admin can demote.
+    //
+    // The critical rule is on self-writes: a trainer may only ever edit their own profile
+    // fields, and `rol`/`gymId` are frozen for them. Otherwise anyone could promote
+    // themselves to admin, or move themselves into another gym, from the browser console.
+    match /profesores/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid || isAdmin()
+        || inMyGym(resource.data.gymId));
+      allow list: if isAdmin() || (hasProfile() && inMyGym(resource.data.gymId));
+      allow create: if isAdmin()
+        || (isCoordinadorOf(request.resource.data.gymId)
+            && request.resource.data.rol == 'profesor');
+      allow delete: if isAdmin()
+        || (isCoordinadorOf(resource.data.gymId) && resource.data.rol == 'profesor');
+      // `hasOnly(['rol'])` is doing real work in the coordinador branch: it's what stops them
+      // rewriting a colleague's name or email, and it makes gymId immovable without a
+      // separate check.
+      allow update: if isAdmin()
+        || (isCoordinadorOf(resource.data.gymId)
+            && resource.data.rol == 'profesor'
+            && request.resource.data.rol == 'coordinador'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rol']))
+        || (request.auth.uid == uid
+            && request.resource.data.mail == request.auth.token.email
+            && request.resource.data.rol == resource.data.rol
+            && request.resource.data.gymId == resource.data.gymId);
     }
 
     // One-time seed lock sentinels (e.g. meta/exercisesSeed) — read to check, create once.
     match /meta/{docId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-    }
-
-    // One profesor doc per trainer, doc id == their auth uid. Any signed-in user can read
-    // the list (needed to show "who made this plan" on other trainers' routines), but a
-    // trainer can only ever create/update their own doc, and can't lie about their email.
-    match /profesores/{uid} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn()
-        && request.auth.uid == uid
-        && request.resource.data.mail == request.auth.token.email;
-      allow delete: if false;
+      allow read: if hasProfile();
+      allow create: if hasProfile();
     }
 
     match /{document=**} {

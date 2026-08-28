@@ -5,9 +5,11 @@ interface ExerciseCardProps {
   exercise: Exercise;
   onEdit: (exercise: Exercise) => void;
   onDelete: (exercise: Exercise) => void;
+  /** The library is shared across gyms, so only a site admin may remove from it. */
+  canDelete: boolean;
 }
 
-export default function ExerciseCard({ exercise, onEdit, onDelete }: ExerciseCardProps) {
+export default function ExerciseCard({ exercise, onEdit, onDelete, canDelete }: ExerciseCardProps) {
   return (
     <div className="bg-white border border-stone-200 rounded-[13px] overflow-hidden flex flex-col">
       <a
@@ -39,13 +41,15 @@ export default function ExerciseCard({ exercise, onEdit, onDelete }: ExerciseCar
           >
             Editar
           </button>
-          <button
-            type="button"
-            onClick={() => onDelete(exercise)}
-            className="text-[12.5px] font-semibold text-red-700 cursor-pointer bg-transparent border-none p-0"
-          >
-            Eliminar
-          </button>
+          {canDelete ? (
+            <button
+              type="button"
+              onClick={() => onDelete(exercise)}
+              className="text-[12.5px] font-semibold text-red-700 cursor-pointer bg-transparent border-none p-0"
+            >
+              Eliminar
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulator": "vite --mode emulator",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "firebase emulators:start --only auth,firestore",
+    "seed": "node scripts/seed-emulator.mjs",
+    "check:rules": "node scripts/check-rules.mjs"
   },
   "dependencies": {
     "firebase": "^12.16.0",
