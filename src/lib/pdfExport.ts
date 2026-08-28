@@ -850,7 +850,7 @@ export async function buildRoutinePdf(
   routine: RoutineInput,
   exercisesMap: Map<string, Exercise>,
   authorName?: string,
-  gym: Branding = { nombre: '', logo: null },
+  gym: Branding = { name: '', logo: null },
 ): Promise<jsPDF> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const flow = new Flow(doc);
@@ -869,11 +869,11 @@ export async function buildRoutinePdf(
 
   // The gym's name sits beside its logo, so a plan is identifiable even when printed by a
   // gym that hasn't uploaded one.
-  if (gym.nombre) {
+  if (gym.name) {
     doc.setFont(FONT, 'bold');
     doc.setFontSize(13);
     doc.setTextColor(NEUTRAL.ink);
-    doc.text(pdfSafe(gym.nombre), headerLeftX, flow.y + logoBoxSize / 2 + 1.5);
+    doc.text(pdfSafe(gym.name), headerLeftX, flow.y + logoBoxSize / 2 + 1.5);
   }
 
   doc.setFont(FONT, 'normal');

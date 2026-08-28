@@ -1,37 +1,37 @@
 import { useState, type FormEvent } from 'react';
-import { AltaProfesorError, altaProfesor } from '../../services/adminUsersService';
+import { CreateTrainerError, createTrainer } from '../../services/adminUsersService';
 
-interface NuevoProfesorModalProps {
+interface NewTrainerModalProps {
   gymId: string;
-  gymNombre: string;
+  gymName: string;
   onClose: () => void;
 }
 
-// Always 'profesor'. Staffing is the coordinador's job, and firestore.rules pins the role
-// they may hand out — a coordinador can't mint another coordinador or an admin.
-export default function NuevoProfesorModal({ gymId, gymNombre, onClose }: NuevoProfesorModalProps) {
-  const [mail, setMail] = useState('');
-  const [nombre, setNombre] = useState('');
-  const [apellido, setApellido] = useState('');
+// Always 'trainer'. Staffing is the coordinator's job, and firestore.rules pins the role
+// they may hand out — a coordinator can't mint another coordinator or an admin.
+export default function NewTrainerModal({ gymId, gymName, onClose }: NewTrainerModalProps) {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmedMail = mail.trim();
-    if (!trimmedMail || !nombre.trim() || !apellido.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !name.trim() || !lastName.trim()) {
       setError('Completá email, nombre y apellido.');
       return;
     }
     setError(null);
     setSaving(true);
     try {
-      await altaProfesor({ mail: trimmedMail, nombre, apellido, rol: 'profesor' }, gymId);
-      setDone(trimmedMail);
+      await createTrainer({ email: trimmedEmail, name, lastName, role: 'trainer' }, gymId);
+      setDone(trimmedEmail);
     } catch (err) {
       setError(
-        err instanceof AltaProfesorError ? err.message : 'No pudimos dar de alta al profesor.',
+        err instanceof CreateTrainerError ? err.message : 'No pudimos dar de alta al profesor.',
       );
     } finally {
       setSaving(false);
@@ -53,7 +53,7 @@ export default function NuevoProfesorModal({ gymId, gymNombre, onClose }: NuevoP
           <>
             <div className="text-sm text-stone-600">
               Listo. <span className="font-semibold">{done}</span> ya forma parte de{' '}
-              <span className="font-semibold">{gymNombre}</span>. Le mandamos un mail para que
+              <span className="font-semibold">{gymName}</span>. Le mandamos un mail para que
               defina su contraseña; cuando entre por primera vez va a completar su perfil.
             </div>
             <button
@@ -68,15 +68,15 @@ export default function NuevoProfesorModal({ gymId, gymNombre, onClose }: NuevoP
           <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
             <div className="text-[13px] text-stone-500">
               Se crea la cuenta y le llega un mail para definir su contraseña. Queda asignado a{' '}
-              <span className="font-semibold text-stone-700">{gymNombre}</span>.
+              <span className="font-semibold text-stone-700">{gymName}</span>.
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[12.5px] font-semibold text-stone-500">Email</label>
               <input
                 type="email"
-                value={mail}
-                onChange={(e) => setMail(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="nombre@gimnasio.com"
                 className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm"
               />
@@ -86,16 +86,16 @@ export default function NuevoProfesorModal({ gymId, gymNombre, onClose }: NuevoP
               <div className="flex-1 flex flex-col gap-1.5">
                 <label className="text-[12.5px] font-semibold text-stone-500">Nombre</label>
                 <input
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm w-full"
                 />
               </div>
               <div className="flex-1 flex flex-col gap-1.5">
                 <label className="text-[12.5px] font-semibold text-stone-500">Apellido</label>
                 <input
-                  value={apellido}
-                  onChange={(e) => setApellido(e.target.value)}
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm w-full"
                 />
               </div>

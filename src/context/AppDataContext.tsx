@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Exercise, Gym, Profesor, Routine, UserRef } from '../types';
+import type { Exercise, Gym, Trainer, Routine, UserRef } from '../types';
 
 export interface AppData {
   routines: Routine[];
@@ -7,16 +7,16 @@ export interface AppData {
   routinesError: boolean;
   exercises: Exercise[];
   exercisesLoading: boolean;
-  profesores: Profesor[];
-  profesoresError: boolean;
+  trainers: Trainer[];
+  trainersError: boolean;
   gyms: Gym[];
   gymsLoading: boolean;
   /** The signed-in user's own access record — always present past the session gate. */
-  myProfesor: Profesor;
+  myTrainer: Trainer;
   isAdmin: boolean;
   /**
-   * Which gym the app is currently showing. Fixed to their own gym for a coordinador or
-   * profesor; for a site admin it's switchable, and `null` there means "every gym at once".
+   * Which gym the app is currently showing. Fixed to their own gym for a coordinator or
+   * trainer; for a site admin it's switchable, and `null` there means "every gym at once".
    */
   activeGymId: string | null;
   setActiveGymId: (gymId: string | null) => void;

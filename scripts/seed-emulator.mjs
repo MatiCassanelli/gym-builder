@@ -21,16 +21,16 @@ const EMU = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/do
 const EMU_AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1';
 
 const FORGE = 'forge';
-const OTRO = 'ironhouse';
+const OTHER = 'ironhouse';
 const PASSWORD = 'test1234';
 
 // One account per role, so every permission path can be exercised by logging in.
-const CUENTAS = [
-  { mail: 'admin@test.com', nombre: 'Mati', apellido: 'Admin', gymId: null, rol: 'admin' },
-  { mail: 'coord.forge@test.com', nombre: 'Rosario', apellido: 'Medina', gymId: FORGE, rol: 'coordinador' },
-  { mail: 'profe.forge@test.com', nombre: 'Alex', apellido: 'Ortega', gymId: FORGE, rol: 'profesor' },
-  { mail: 'coord.iron@test.com', nombre: 'Carla', apellido: 'Duarte', gymId: OTRO, rol: 'coordinador' },
-  { mail: 'profe.iron@test.com', nombre: 'Nico', apellido: 'Ferrer', gymId: OTRO, rol: 'profesor' },
+const ACCOUNTS = [
+  { email: 'admin@test.com', name: 'Mati', lastName: 'Admin', gymId: null, role: 'admin' },
+  { email: 'coord.forge@test.com', name: 'Rosario', lastName: 'Medina', gymId: FORGE, role: 'coordinator' },
+  { email: 'profe.forge@test.com', name: 'Alex', lastName: 'Ortega', gymId: FORGE, role: 'trainer' },
+  { email: 'coord.iron@test.com', name: 'Carla', lastName: 'Duarte', gymId: OTHER, role: 'coordinator' },
+  { email: 'profe.iron@test.com', name: 'Nico', lastName: 'Ferrer', gymId: OTHER, role: 'trainer' },
 ];
 
 function prodToken() {
@@ -63,9 +63,9 @@ async function createUser(email) {
   });
   if (signUp.ok) return (await signUp.json()).localId;
 
-  const detalle = await signUp.text();
-  if (!detalle.includes('EMAIL_EXISTS')) {
-    throw new Error(`auth ${email}: ${signUp.status} ${detalle}`);
+  const detail = await signUp.text();
+  if (!detail.includes('EMAIL_EXISTS')) {
+    throw new Error(`auth ${email}: ${signUp.status} ${detail}`);
   }
   const signIn = await fetch(`${EMU_AUTH}/accounts:signInWithPassword?key=fake-api-key`, {
     method: 'POST',
@@ -98,32 +98,32 @@ async function main() {
   console.log('1. gimnasios');
   const forgeDoc = await readProd(`gyms/${FORGE}`, token);
   await writeEmu(`gyms/${FORGE}`, {
-    nombre: str('Forge Gym & Box'),
+    name: str('Forge Gym & Box'),
     logo: forgeDoc.fields.logo,
     createdAt: int(now),
     updatedAt: int(now),
   });
-  await writeEmu(`gyms/${OTRO}`, {
-    nombre: str('Iron House'),
+  await writeEmu(`gyms/${OTHER}`, {
+    name: str('Iron House'),
     createdAt: int(now),
     updatedAt: int(now),
   });
-  console.log(`   ${FORGE} (con logo real) + ${OTRO} (sin logo)`);
+  console.log(`   ${FORGE} (con logo real) + ${OTHER} (sin logo)`);
 
   // 2. Accounts, one per role.
   console.log('2. cuentas');
   const uids = {};
-  for (const c of CUENTAS) {
-    const uid = await createUser(c.mail);
-    uids[c.mail] = uid;
-    await writeEmu(`profesores/${uid}`, {
-      nombre: str(c.nombre),
-      apellido: str(c.apellido),
-      mail: str(c.mail),
-      rol: str(c.rol),
+  for (const c of ACCOUNTS) {
+    const uid = await createUser(c.email);
+    uids[c.email] = uid;
+    await writeEmu(`trainers/${uid}`, {
+      name: str(c.name),
+      lastName: str(c.lastName),
+      email: str(c.email),
+      role: str(c.role),
       gymId: c.gymId ? str(c.gymId) : { nullValue: null },
     });
-    console.log(`   ${c.mail.padEnd(22)} ${c.rol.padEnd(12)} ${c.gymId ?? '(sin gimnasio)'}`);
+    console.log(`   ${c.email.padEnd(22)} ${c.role.padEnd(12)} ${c.gymId ?? '(sin gimnasio)'}`);
   }
 
   // 3. The real exercise library, so the picker and the PDF look like the real thing.
@@ -146,24 +146,24 @@ async function main() {
   //    stay in Forge, half are re-stamped as Iron House and re-credited to its trainers.
   console.log('4. rutinas');
   const routines = (await readProd('routines?pageSize=12', token)).documents ?? [];
-  const ironAutores = ['coord.iron@test.com', 'profe.iron@test.com'];
-  const forgeAutores = ['coord.forge@test.com', 'profe.forge@test.com'];
+  const otherAuthors = ['coord.iron@test.com', 'profe.iron@test.com'];
+  const forgeAuthors = ['coord.forge@test.com', 'profe.forge@test.com'];
   for (const [i, doc] of routines.entries()) {
     const id = doc.name.split('/').pop();
-    const enIron = i % 2 === 1;
-    const autores = enIron ? ironAutores : forgeAutores;
-    const mail = autores[Math.floor(i / 2) % autores.length];
-    const autor = {
-      mapValue: { fields: { uid: str(uids[mail]), email: str(mail) } },
+    const inOther = i % 2 === 1;
+    const authors = inOther ? otherAuthors : forgeAuthors;
+    const email = authors[Math.floor(i / 2) % authors.length];
+    const author = {
+      mapValue: { fields: { uid: str(uids[email]), email: str(email) } },
     };
     await writeEmu(`routines/${id}`, {
       ...doc.fields,
-      gymId: str(enIron ? OTRO : FORGE),
-      createdBy: autor,
-      updatedBy: autor,
+      gymId: str(inOther ? OTHER : FORGE),
+      createdBy: author,
+      updatedBy: author,
     });
   }
-  console.log(`   ${routines.length} rutinas repartidas entre ${FORGE} e ${OTRO}`);
+  console.log(`   ${routines.length} rutinas repartidas entre ${FORGE} e ${OTHER}`);
 
   console.log(`\nListo. Entrá con cualquiera de esas cuentas, contraseña: ${PASSWORD}`);
   console.log('UI de los emuladores: http://127.0.0.1:4000');

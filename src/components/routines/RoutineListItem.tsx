@@ -9,14 +9,14 @@ interface RoutineListItemProps {
   currentUser: UserRef;
   onRequestDelete: (routine: Routine) => void;
   /** Set only in the admin's cross-gym view, where rows from several gyms are mixed. */
-  gymNombre: string | null;
+  gymName: string | null;
 }
 
 export default function RoutineListItem({
   routine,
   currentUser,
   onRequestDelete,
-  gymNombre,
+  gymName,
 }: RoutineListItemProps) {
   const navigate = useNavigate();
   const [copying, setCopying] = useState(false);
@@ -49,9 +49,9 @@ export default function RoutineListItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <div className="font-bold text-[15px] truncate">{routine.student || 'Sin nombre'}</div>
-          {gymNombre ? (
+          {gymName ? (
             <span className="shrink-0 px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[11px] font-bold">
-              {gymNombre}
+              {gymName}
             </span>
           ) : null}
         </div>

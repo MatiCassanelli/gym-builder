@@ -6,25 +6,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // The signed-in user's access record. profesores/{uid} is the single source of truth for
+    // The signed-in user's access record. trainers/{uid} is the single source of truth for
     // both which gym they belong to and what they're allowed to do — repeated get() calls to
     // the same path are cached within one request, so this stays a single document read.
-    function prof() {
-      return get(/databases/$(database)/documents/profesores/$(request.auth.uid)).data;
+    function trainer() {
+      return get(/databases/$(database)/documents/trainers/$(request.auth.uid)).data;
     }
 
     function hasProfile() {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/profesores/$(request.auth.uid));
+        && exists(/databases/$(database)/documents/trainers/$(request.auth.uid));
     }
 
     // Site admin: sees and edits every gym. Deliberately not tied to any single gymId.
     function isAdmin() {
-      return hasProfile() && prof().rol == 'admin';
+      return hasProfile() && trainer().role == 'admin';
     }
 
     function myGymId() {
-      return prof().gymId;
+      return trainer().gymId;
     }
 
     // The tenant check. Everything a non-admin can touch has to carry their own gymId.
@@ -32,8 +32,8 @@ service cloud.firestore {
       return hasProfile() && gymId != null && myGymId() == gymId;
     }
 
-    function isCoordinadorOf(gymId) {
-      return hasProfile() && prof().rol == 'coordinador' && myGymId() == gymId;
+    function isCoordinatorOf(gymId) {
+      return hasProfile() && trainer().role == 'coordinator' && myGymId() == gymId;
     }
 
     function ownsWrite(field) {
@@ -44,18 +44,18 @@ service cloud.firestore {
     // for the UI and for the PDF header); only an admin may `list`, so a trainer has no way
     // to discover that any other gym exists.
     //
-    // A coordinador may edit their own gym's name and logo — and nothing else, which is why
+    // A coordinator may edit their own gym's name and logo — and nothing else, which is why
     // the field set is pinned here. Creating and deleting a gym is the one power that stays
-    // exclusively the admin's: a coordinador running a gym must never be able to destroy it
+    // exclusively the admin's: a coordinator running a gym must never be able to destroy it
     // (and with it everyone else's access) on their own.
     match /gyms/{gymId} {
       allow get: if isAdmin() || inMyGym(gymId);
       allow list: if isAdmin();
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
-        || (isCoordinadorOf(gymId)
+        || (isCoordinatorOf(gymId)
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['nombre', 'logo', 'updatedAt']));
+                 .hasOnly(['name', 'logo', 'updatedAt']));
     }
 
     // The exercise library is shared across gyms on purpose: any trainer can add a movement
@@ -84,49 +84,49 @@ service cloud.firestore {
       allow delete: if isAdmin() || inMyGym(resource.data.gymId);
     }
 
-    // One profesor doc per trainer, doc id == their auth uid.
+    // One trainer doc per trainer, doc id == their auth uid.
     //
     // Trainers see the roster of their own gym (needed to show "who made this plan"), and
     // always their own doc — which has to be readable before their gymId is even known, so
     // it's granted by uid rather than by gym.
     //
-    // Authority is strictly nested: admin > coordinador > profesor. An admin can do anything
-    // a coordinador can, plus what only they can; a coordinador can do anything a profesor
+    // Authority is strictly nested: admin > coordinator > trainer. An admin can do anything
+    // a coordinator can, plus what only they can; a coordinator can do anything a trainer
     // can, within their own gym.
     //
-    // A coordinador staffs their own gym: they create trainers (always at rol 'profesor' —
+    // A coordinator staffs their own gym: they create trainers (always at role 'trainer' —
     // that pin is what stops them minting an admin) and remove them. Every one of their
-    // powers is scoped to rows that are `rol: 'profesor'` today, which has two consequences
-    // worth stating out loud: they can never touch a fellow coordinador, and they can never
+    // powers is scoped to rows that are `role: 'trainer'` today, which has two consequences
+    // worth stating out loud: they can never touch a fellow coordinator, and they can never
     // remove or demote themselves. So a gym can't be left leaderless, and nobody can seize
-    // sole control of a gym by clearing out the other coordinadores.
+    // sole control of a gym by clearing out the other coordinators.
     //
-    // Promotion is therefore a one-way street for a coordinador: profesor -> coordinador,
+    // Promotion is therefore a one-way street for a coordinator: trainer -> coordinator,
     // never back. Only an admin can demote.
     //
     // The critical rule is on self-writes: a trainer may only ever edit their own profile
-    // fields, and `rol`/`gymId` are frozen for them. Otherwise anyone could promote
+    // fields, and `role`/`gymId` are frozen for them. Otherwise anyone could promote
     // themselves to admin, or move themselves into another gym, from the browser console.
-    match /profesores/{uid} {
+    match /trainers/{uid} {
       allow get: if isSignedIn() && (request.auth.uid == uid || isAdmin()
         || inMyGym(resource.data.gymId));
       allow list: if isAdmin() || (hasProfile() && inMyGym(resource.data.gymId));
       allow create: if isAdmin()
-        || (isCoordinadorOf(request.resource.data.gymId)
-            && request.resource.data.rol == 'profesor');
+        || (isCoordinatorOf(request.resource.data.gymId)
+            && request.resource.data.role == 'trainer');
       allow delete: if isAdmin()
-        || (isCoordinadorOf(resource.data.gymId) && resource.data.rol == 'profesor');
-      // `hasOnly(['rol'])` is doing real work in the coordinador branch: it's what stops them
+        || (isCoordinatorOf(resource.data.gymId) && resource.data.role == 'trainer');
+      // `hasOnly(['role'])` is doing real work in the coordinator branch: it's what stops them
       // rewriting a colleague's name or email, and it makes gymId immovable without a
       // separate check.
       allow update: if isAdmin()
-        || (isCoordinadorOf(resource.data.gymId)
-            && resource.data.rol == 'profesor'
-            && request.resource.data.rol == 'coordinador'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rol']))
+        || (isCoordinatorOf(resource.data.gymId)
+            && resource.data.role == 'trainer'
+            && request.resource.data.role == 'coordinator'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
         || (request.auth.uid == uid
-            && request.resource.data.mail == request.auth.token.email
-            && request.resource.data.rol == resource.data.rol
+            && request.resource.data.email == request.auth.token.email
+            && request.resource.data.role == resource.data.role
             && request.resource.data.gymId == resource.data.gymId);
     }
 

@@ -1,26 +1,26 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import GymMark from '../layout/GymMark';
-import { AltaProfesorError, altaGimnasio } from '../../services/adminUsersService';
+import { CreateTrainerError, createGymWithCoordinator } from '../../services/adminUsersService';
 import { resizeLogoToDataUrl } from '../../lib/image';
 
-interface NuevoGymModalProps {
+interface NewGymModalProps {
   onClose: () => void;
 }
 
 /**
- * A gym and the coordinador who will run it are created together, in one form: staffing is
- * the coordinador's job, so a gym without one would have nobody able to add trainers, and
- * appointing a coordinador is the one thing only an admin can do.
+ * A gym and the coordinator who will run it are created together, in one form: staffing is
+ * the coordinator's job, so a gym without one would have nobody able to add trainers, and
+ * appointing a coordinator is the one thing only an admin can do.
  */
-export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
-  const [nombre, setNombre] = useState('');
+export default function NewGymModal({ onClose }: NewGymModalProps) {
+  const [name, setName] = useState('');
   const [logo, setLogo] = useState<string | undefined>();
-  const [mail, setMail] = useState('');
-  const [coordNombre, setCoordNombre] = useState('');
-  const [coordApellido, setCoordApellido] = useState('');
+  const [email, setEmail] = useState('');
+  const [coordName, setCoordName] = useState('');
+  const [coordLastName, setCoordLastName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ gym: string; mail: string } | null>(null);
+  const [done, setDone] = useState<{ gym: string; email: string } | null>(null);
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -34,27 +34,27 @@ export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmedNombre = nombre.trim();
-    const trimmedMail = mail.trim();
-    if (!trimmedNombre) {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    if (!trimmedName) {
       setError('Poné un nombre para el gimnasio.');
       return;
     }
-    if (!trimmedMail || !coordNombre.trim() || !coordApellido.trim()) {
+    if (!trimmedEmail || !coordName.trim() || !coordLastName.trim()) {
       setError('Completá email, nombre y apellido del coordinador.');
       return;
     }
     setError(null);
     setSaving(true);
     try {
-      await altaGimnasio(
-        { nombre: trimmedNombre, logo },
-        { mail: trimmedMail, nombre: coordNombre, apellido: coordApellido },
+      await createGymWithCoordinator(
+        { name: trimmedName, logo },
+        { email: trimmedEmail, name: coordName, lastName: coordLastName },
       );
-      setDone({ gym: trimmedNombre, mail: trimmedMail });
+      setDone({ gym: trimmedName, email: trimmedEmail });
     } catch (err) {
       setError(
-        err instanceof AltaProfesorError ? err.message : 'No pudimos crear el gimnasio.',
+        err instanceof CreateTrainerError ? err.message : 'No pudimos crear el gimnasio.',
       );
     } finally {
       setSaving(false);
@@ -76,7 +76,7 @@ export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
           <>
             <div className="text-sm text-stone-600">
               <span className="font-semibold">{done.gym}</span> quedó creado. Le mandamos un mail
-              a <span className="font-semibold">{done.mail}</span> para que defina su contraseña.
+              a <span className="font-semibold">{done.email}</span> para que defina su contraseña.
               Como coordinador va a poder dar de alta a sus profesores y editar el nombre y el
               logo del gimnasio.
             </div>
@@ -91,7 +91,7 @@ export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
         ) : (
           <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
-              <GymMark nombre={nombre || '?'} logo={logo ?? null} size={64} rounded="rounded-xl" />
+              <GymMark name={name || '?'} logo={logo ?? null} size={64} rounded="rounded-xl" />
               <div className="flex flex-col gap-1 items-start">
                 <label className="text-[12.5px] font-semibold text-red-600 cursor-pointer">
                   {logo ? 'Cambiar logo' : 'Subir logo (opcional)'}
@@ -113,8 +113,8 @@ export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
                 Nombre del gimnasio
               </label>
               <input
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Iron House"
                 className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm"
               />
@@ -133,8 +133,8 @@ export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
                 <label className="text-[12.5px] font-semibold text-stone-500">Email</label>
                 <input
                   type="email"
-                  value={mail}
-                  onChange={(e) => setMail(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="nombre@gimnasio.com"
                   className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm"
                 />
@@ -144,16 +144,16 @@ export default function NuevoGymModal({ onClose }: NuevoGymModalProps) {
                 <div className="flex-1 flex flex-col gap-1.5">
                   <label className="text-[12.5px] font-semibold text-stone-500">Nombre</label>
                   <input
-                    value={coordNombre}
-                    onChange={(e) => setCoordNombre(e.target.value)}
+                    value={coordName}
+                    onChange={(e) => setCoordName(e.target.value)}
                     className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm w-full"
                   />
                 </div>
                 <div className="flex-1 flex flex-col gap-1.5">
                   <label className="text-[12.5px] font-semibold text-stone-500">Apellido</label>
                   <input
-                    value={coordApellido}
-                    onChange={(e) => setCoordApellido(e.target.value)}
+                    value={coordLastName}
+                    onChange={(e) => setCoordLastName(e.target.value)}
                     className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm w-full"
                   />
                 </div>

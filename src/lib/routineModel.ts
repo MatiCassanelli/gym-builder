@@ -51,9 +51,9 @@ export function normalizeEntry(entry: RoutineEntry): RoutineEntry {
 }
 
 export const DEFAULT_WARMUP_LABELS: Record<WarmupPhaseKey, string> = {
-  movilidad: "2 series · Ritmo controlado",
-  activacion: "",
-  especifica: "",
+  mobility: "2 series · Ritmo controlado",
+  activation: "",
+  specific: "",
 };
 
 export const DEFAULT_WARMUP_NOTE =
@@ -70,7 +70,7 @@ function emptyWarmupItems(): WarmupItems {
   }, {} as WarmupItems);
 }
 
-// Every new routine starts with these already in the "Movilidad" phase — same drills, same
+// Every new routine starts with these already in the "mobility" phase — same drills, same
 // dosage, every time — so the trainer edits/removes them instead of adding them from scratch.
 export const DEFAULT_MOBILITY_EXERCISE_NAMES = [
   "Arm Haulers",
@@ -96,7 +96,7 @@ function defaultMobilityItems(exercises: Exercise[]): WarmupItem[] {
 
 export function blankWarmup(exercises: Exercise[] = []): RoutineWarmup {
   const items = emptyWarmupItems();
-  items.movilidad = defaultMobilityItems(exercises);
+  items.mobility = defaultMobilityItems(exercises);
   return {
     labels: { ...DEFAULT_WARMUP_LABELS },
     note: DEFAULT_WARMUP_NOTE,

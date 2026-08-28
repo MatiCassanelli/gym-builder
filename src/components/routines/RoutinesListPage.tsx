@@ -3,27 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import RoutineListItem from './RoutineListItem';
 import { deleteRoutine } from '../../services/routinesService';
 import { useAppData } from '../../context/AppDataContext';
-import type { Profesor, Routine, UserRef } from '../../types';
+import type { Trainer, Routine, UserRef } from '../../types';
 
 interface RoutinesListPageProps {
   routines: Routine[];
   loading: boolean;
   currentUser: UserRef;
-  profesores: Profesor[];
+  trainers: Trainer[];
 }
 
-function profesorName(p: Profesor): string {
-  return `${p.nombre} ${p.apellido}`.trim();
+function trainerName(p: Trainer): string {
+  return `${p.name} ${p.lastName}`.trim();
 }
 
 function titleFor(
-  selectedProfesorId: string,
+  selectedTrainerId: string,
   currentUserUid: string,
-  selectedProfesor: Profesor | undefined,
+  selectedTrainer: Trainer | undefined,
 ): string {
-  if (selectedProfesorId === 'all') return 'Todas las rutinas';
-  if (selectedProfesorId === currentUserUid) return 'Mis rutinas';
-  if (selectedProfesor) return `Rutinas de ${profesorName(selectedProfesor)}`;
+  if (selectedTrainerId === 'all') return 'Todas las rutinas';
+  if (selectedTrainerId === currentUserUid) return 'Mis rutinas';
+  if (selectedTrainer) return `Rutinas de ${trainerName(selectedTrainer)}`;
   return 'Rutinas';
 }
 
@@ -31,7 +31,7 @@ export default function RoutinesListPage({
   routines,
   loading,
   currentUser,
-  profesores,
+  trainers,
 }: RoutinesListPageProps) {
   const navigate = useNavigate();
   const { gyms, activeGymId, isAdmin } = useAppData();
@@ -39,47 +39,47 @@ export default function RoutinesListPage({
   const [deleting, setDeleting] = useState(false);
   // A trainer lands on their own plans; a site admin authors none, so they land on the
   // whole list instead of on an empty "Mis rutinas".
-  const [selectedProfesorId, setSelectedProfesorId] = useState<string>(
+  const [selectedTrainerId, setSelectedTrainerId] = useState<string>(
     isAdmin ? 'all' : currentUser.uid,
   );
   const [search, setSearch] = useState('');
 
-  // Own profile pinned first (labeled "(yo)"), the rest of the shared profesores table
+  // Own profile pinned first (labeled "(yo)"), the rest of the shared trainer table
   // follows alphabetically — chips reflect the trainer roster in Firestore, not just
-  // whoever happens to have authored a routine. Profesores flagged skipFromFilters are
+  // whoever happens to have authored a routine. Trainers flagged skipFromFilters are
   // left out of the chip list entirely (e.g. shared/admin accounts).
-  const profesorChips = useMemo(() => {
-    const visible = profesores.filter((p) => !p.skipFromFilters);
+  const trainerChips = useMemo(() => {
+    const visible = trainers.filter((p) => !p.skipFromFilters);
     const others = visible
       .filter((p) => p.id !== currentUser.uid)
-      .sort((a, b) => profesorName(a).localeCompare(profesorName(b)));
+      .sort((a, b) => trainerName(a).localeCompare(trainerName(b)));
     const mine = visible.find((p) => p.id === currentUser.uid);
     const ordered = mine ? [mine, ...others] : others;
     return ordered.map((p) => ({
       id: p.id,
-      label: p.id === currentUser.uid ? `${profesorName(p)} (yo)` : profesorName(p),
+      label: p.id === currentUser.uid ? `${trainerName(p)} (yo)` : trainerName(p),
       count: routines.filter((r) => r.createdBy.uid === p.id).length,
     }));
-  }, [profesores, routines, currentUser.uid]);
+  }, [trainers, routines, currentUser.uid]);
 
-  const selectedProfesor = profesores.find((p) => p.id === selectedProfesorId);
-  const title = titleFor(selectedProfesorId, currentUser.uid, selectedProfesor);
+  const selectedTrainer = trainers.find((p) => p.id === selectedTrainerId);
+  const title = titleFor(selectedTrainerId, currentUser.uid, selectedTrainer);
 
-  // Only the admin's "todos los gimnasios" scope mixes gyms in one list; everywhere else
+  // Only the admin's "every gym" scope mixes gyms in one list; everywhere else
   // every row belongs to the gym already named in the top bar, so labelling each one would
   // just be noise.
   const showGymBadge = isAdmin && activeGymId === null;
   const gymNames = useMemo(
-    () => new Map(gyms.map((g) => [g.id, g.nombre])),
+    () => new Map(gyms.map((g) => [g.id, g.name])),
     [gyms],
   );
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return routines
-      .filter((r) => selectedProfesorId === 'all' || r.createdBy.uid === selectedProfesorId)
+      .filter((r) => selectedTrainerId === 'all' || r.createdBy.uid === selectedTrainerId)
       .filter((r) => !term || r.student.toLowerCase().includes(term));
-  }, [routines, selectedProfesorId, search]);
+  }, [routines, selectedTrainerId, search]);
 
   const sorted = useMemo(
     () => [...filtered].sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999')),
@@ -102,7 +102,7 @@ export default function RoutinesListPage({
     listContent = <div className="py-16 text-center text-stone-500 text-sm">Cargando…</div>;
   } else if (sorted.length === 0) {
     const emptyMessage =
-      search.trim() || selectedProfesorId !== 'all'
+      search.trim() || selectedTrainerId !== 'all'
         ? 'No se encontraron rutinas con ese filtro.'
         : 'Todavía no creaste ninguna rutina.';
     listContent = (
@@ -119,7 +119,7 @@ export default function RoutinesListPage({
             routine={r}
             currentUser={currentUser}
             onRequestDelete={setRoutineToDelete}
-            gymNombre={showGymBadge ? (gymNames.get(r.gymId) ?? 'Sin gimnasio') : null}
+            gymName={showGymBadge ? (gymNames.get(r.gymId) ?? 'Sin gimnasio') : null}
           />
         ))}
       </div>
@@ -155,22 +155,22 @@ export default function RoutinesListPage({
       <div className="flex flex-wrap gap-2 mb-6">
         <button
           type="button"
-          onClick={() => setSelectedProfesorId('all')}
+          onClick={() => setSelectedTrainerId('all')}
           className={`px-3.5 py-1.75 rounded-full text-[13px] font-semibold cursor-pointer border ${
-            selectedProfesorId === 'all'
+            selectedTrainerId === 'all'
               ? 'bg-red-600 border-red-600 text-white'
               : 'bg-white border-stone-300 text-stone-700'
           }`}
         >
           Todos ({routines.length})
         </button>
-        {profesorChips.map((p) => (
+        {trainerChips.map((p) => (
           <button
             key={p.id}
             type="button"
-            onClick={() => setSelectedProfesorId(p.id)}
+            onClick={() => setSelectedTrainerId(p.id)}
             className={`px-3.5 py-1.75 rounded-full text-[13px] font-semibold cursor-pointer border whitespace-nowrap ${
-              selectedProfesorId === p.id
+              selectedTrainerId === p.id
                 ? 'bg-red-600 border-red-600 text-white'
                 : 'bg-white border-stone-300 text-stone-700'
             }`}

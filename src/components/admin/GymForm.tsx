@@ -4,7 +4,7 @@ import { resizeLogoToDataUrl } from '../../lib/image';
 import type { GymInput } from '../../types';
 
 interface GymFormProps {
-  initialNombre?: string;
+  initialName?: string;
   initialLogo?: string;
   onSave: (input: GymInput) => Promise<void>;
   onCancel?: () => void;
@@ -12,16 +12,16 @@ interface GymFormProps {
 }
 
 // The one editor for a gym's identity. An admin reaches it from the gym detail page and a
-// coordinador from "Mi gimnasio" — same fields either way, since name and logo are exactly
-// what a coordinador is allowed to change.
+// coordinator from "Mi gimnasio" — same fields either way, since name and logo are exactly
+// what a coordinator is allowed to change.
 export default function GymForm({
-  initialNombre = '',
+  initialName = '',
   initialLogo,
   onSave,
   onCancel,
   submitLabel = 'Guardar',
 }: GymFormProps) {
-  const [nombre, setNombre] = useState(initialNombre);
+  const [name, setName] = useState(initialName);
   const [logo, setLogo] = useState<string | undefined>(initialLogo);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function GymForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmed = nombre.trim();
+    const trimmed = name.trim();
     if (!trimmed) {
       setError('Poné un nombre para el gimnasio.');
       return;
@@ -48,7 +48,7 @@ export default function GymForm({
     setError(null);
     setSaving(true);
     try {
-      await onSave({ nombre: trimmed, logo });
+      await onSave({ name: trimmed, logo });
       setSaved(true);
     } catch {
       setError('No pudimos guardar los cambios. Probá de nuevo.');
@@ -60,7 +60,7 @@ export default function GymForm({
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
-        <GymMark nombre={nombre || '?'} logo={logo ?? null} size={72} rounded="rounded-xl" />
+        <GymMark name={name || '?'} logo={logo ?? null} size={72} rounded="rounded-xl" />
         <div className="flex flex-col gap-1.5 items-start">
           <label className="text-[12.5px] font-semibold text-red-600 cursor-pointer">
             {logo ? 'Cambiar logo' : 'Subir logo'}
@@ -92,9 +92,9 @@ export default function GymForm({
       <div className="flex flex-col gap-1.5">
         <label className="text-[12.5px] font-semibold text-stone-500">Nombre del gimnasio</label>
         <input
-          value={nombre}
+          value={name}
           onChange={(e) => {
-            setNombre(e.target.value);
+            setName(e.target.value);
             setSaved(false);
           }}
           placeholder="Ej. Forge Gym & Box"
