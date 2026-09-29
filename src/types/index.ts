@@ -104,6 +104,10 @@ export interface Routine {
   objective: string;
   days: RoutineDay[];
   warmup: RoutineWarmup;
+  /** Id of the first version of this plan; shared by every version. Legacy docs lack it. */
+  planId: string;
+  /** 1, 2, 3… within the plan. Legacy docs lack it and read as 1. */
+  version: number;
   createdBy: UserRef;
   createdAt: number;
   updatedBy: UserRef;

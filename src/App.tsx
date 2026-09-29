@@ -13,10 +13,12 @@ import { useExercises } from './hooks/useExercises';
 import { useTrainers } from './hooks/useTrainers';
 import { toUserRef } from './services/authService';
 import { AppDataContext, useAppData, type AppData } from './context/AppDataContext';
+import { latestVersions } from './lib/planVersions';
 import type { Gym, Trainer } from './types';
 
 const ExercisesPage = lazy(() => import('./components/exercises/ExercisesPage'));
 const BuilderPage = lazy(() => import('./components/builder/BuilderPage'));
+const RoutineViewPage = lazy(() => import('./components/routines/RoutineViewPage'));
 const GymsAdminPage = lazy(() => import('./components/admin/GymsAdminPage'));
 const GymDetailPage = lazy(() => import('./components/admin/GymDetailPage'));
 const MyGymPage = lazy(() => import('./components/admin/MyGymPage'));
@@ -98,20 +100,47 @@ function ExercisesRoute() {
 // latter to preload default mobility items) — so this wrapper waits until both have loaded
 // and remounts BuilderPage (via `key`) whenever the routine id in the URL changes, instead
 // of BuilderPage syncing itself via an effect.
-function BuilderRoute() {
+function BuilderRoute({ newVersion = false }: { newVersion?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const { routines, routinesLoading, exercises, exercisesLoading, trainers, currentUser, gyms, activeGymId } =
     useAppData();
   if (routinesLoading || exercisesLoading) return <PageFallback />;
+
+  const routine = routines.find((r) => r.id === id);
+  if (id && !routine) return <Navigate to="/" replace />;
+  // Only the latest version of a plan is editable; older ones open read-only.
+  if (routine && !newVersion) {
+    const isLatest = latestVersions(routines).some((r) => r.id === routine.id);
+    if (!isLatest) return <Navigate to={`/routines/${routine.id}/view`} replace />;
+  }
   return (
     <BuilderPage
-      key={id ?? 'new'}
+      key={`${newVersion ? 'new-version' : 'edit'}:${id ?? 'new'}`}
+      newVersion={newVersion}
       routines={routines}
       exercises={exercises}
       trainers={trainers}
       currentUser={currentUser}
       gyms={gyms}
       activeGymId={activeGymId}
+    />
+  );
+}
+
+function ViewRoute() {
+  const { id } = useParams<{ id: string }>();
+  const { routines, routinesLoading, exercises, exercisesLoading, trainers, gyms } = useAppData();
+  if (routinesLoading || exercisesLoading) return <PageFallback />;
+  const routine = routines.find((r) => r.id === id);
+  if (!routine) return <Navigate to="/" replace />;
+  return (
+    <RoutineViewPage
+      key={routine.id}
+      routine={routine}
+      routines={routines}
+      exercises={exercises}
+      trainers={trainers}
+      gyms={gyms}
     />
   );
 }
@@ -163,6 +192,22 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageFallback />}>
             <BuilderRoute />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/routines/:id/new-version',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <BuilderRoute newVersion />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/routines/:id/view',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <ViewRoute />
           </Suspense>
         ),
       },

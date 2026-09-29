@@ -5,10 +5,13 @@ import DayTabs from './DayTabs';
 import ExerciseBlock, { type SetField } from './ExerciseBlock';
 import ExercisePickerModal, { type PickerTarget } from './ExercisePickerModal';
 import WarmupEditor from './WarmupEditor';
+import VersionSelect from './VersionSelect';
 import RoutinePrintPreview from '../preview/RoutinePrintPreview';
 import { cleanSupersets, computeBlocks, reorderBlocks, reorderWithinSuperset } from '../../lib/blocks';
 import { MAX_PERIODICITY, WARMUP_DAY_ID, dayPalette } from '../../lib/colors';
+import { nextDayIso } from '../../lib/format';
 import { newId } from '../../lib/ids';
+import { latestVersions, versionsOf } from '../../lib/planVersions';
 import {
   MAX_SETS,
   blankRoutineInput,
@@ -38,12 +41,37 @@ interface BuilderPageProps {
   gyms: Gym[];
   /** null only for a site admin looking across every gym at once. */
   activeGymId: string | null;
+  /** Route /routines/:id/new-version: prefill from the plan's current version, save as the next one. */
+  newVersion: boolean;
 }
 
 type Mode = 'builder' | 'preview';
 
-function initialDraft(id: string | undefined, routines: Routine[], exercises: Exercise[]): RoutineInput {
+// The routine a new version continues from: the plan's current version, whichever version id
+// the URL happens to carry.
+function currentVersionOf(id: string | undefined, routines: Routine[]): Routine | undefined {
+  const found = routines.find((r) => r.id === id);
+  if (!found) return undefined;
+  return latestVersions(routines).find((r) => r.planId === found.planId);
+}
+
+function initialDraft(
+  id: string | undefined,
+  routines: Routine[],
+  exercises: Exercise[],
+  newVersion: boolean,
+): RoutineInput {
   if (!id) return blankRoutineInput(exercises);
+  if (newVersion) {
+    const current = currentVersionOf(id, routines);
+    if (!current) return blankRoutineInput(exercises);
+    // Nothing is written until "Guardar": the new version starts the day after the old one ends.
+    return {
+      ...normalizeRoutineInput(current),
+      startDate: nextDayIso(current.endDate),
+      endDate: '',
+    };
+  }
   const found = routines.find((r) => r.id === id);
   if (!found) return blankRoutineInput(exercises);
   return normalizeRoutineInput(found);
@@ -56,6 +84,7 @@ export default function BuilderPage({
   currentUser,
   gyms,
   activeGymId,
+  newVersion,
 }: BuilderPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -63,7 +92,7 @@ export default function BuilderPage({
   // `routines` is guaranteed loaded before this component mounts (see BuilderRoute in App.tsx),
   // and this component remounts (via `key`) whenever `id` changes, so a lazy initializer is
   // enough here — no effect needed to sync the draft from async data.
-  const [draft, setDraft] = useState<RoutineInput>(() => initialDraft(id, routines, exercises));
+  const [draft, setDraft] = useState<RoutineInput>(() => initialDraft(id, routines, exercises, newVersion));
   const [mode, setMode] = useState<Mode>('builder');
   const [activeDay, setActiveDay] = useState(1);
   // Which list the exercise picker is filling: the active day, or one warm-up phase.
@@ -83,7 +112,9 @@ export default function BuilderPage({
   // Whoever created the routine gets credited on the preview/PDF — not whoever happens to
   // be viewing it. For a brand-new (unsaved) routine that's necessarily the current user,
   // since they're the one `createRoutine` will stamp as its author on save.
-  const originalRoutine = id ? routines.find((r) => r.id === id) : undefined;
+  const editingId = newVersion ? undefined : id;
+  const originalRoutine = editingId ? routines.find((r) => r.id === editingId) : undefined;
+  const previousVersion = newVersion ? currentVersionOf(id, routines) : undefined;
   const authorUid = originalRoutine ? originalRoutine.createdBy.uid : currentUser.uid;
   const authorEmail = originalRoutine ? originalRoutine.createdBy.email : currentUser.email;
   const authorTrainer = trainers.find((p) => p.id === authorUid);
@@ -93,7 +124,11 @@ export default function BuilderPage({
 
   // An existing routine keeps the gym it was created in — editing it from an admin's other
   // scope must never move it. A new one lands in whichever gym is currently in view.
-  const routineGymId = originalRoutine ? originalRoutine.gymId : activeGymId;
+  const routineGymId = (originalRoutine ?? previousVersion)?.gymId ?? activeGymId;
+  const planVersions = originalRoutine ? versionsOf(routines, originalRoutine.planId) : [];
+  const versionSelect = originalRoutine ? (
+    <VersionSelect versions={planVersions} selectedId={originalRoutine.id} trainers={trainers} />
+  ) : null;
   const routineGym = gyms.find((g) => g.id === routineGymId) ?? null;
 
   const showWarmup = activeDay === WARMUP_DAY_ID;
@@ -104,7 +139,9 @@ export default function BuilderPage({
 
   const totalEntries = draft.days.reduce((acc, d) => acc + d.entries.length, 0);
   const previewAvailable = !!draft.student && !!draft.startDate && !!draft.endDate && totalEntries > 0;
-  const builderTitle = id ? `Editar rutina — ${draft.student || 'Alumno'}` : 'Crear rutina';
+  let builderTitle = 'Crear rutina';
+  if (newVersion) builderTitle = `Nueva versión — ${draft.student || 'Alumno'}`;
+  else if (id) builderTitle = `Editar rutina — ${draft.student || 'Alumno'}`;
 
   // Any in-app navigation away from this route (breadcrumb, top nav tabs, browser back)
   // while there are unsaved edits gets intercepted here instead of silently discarding them.
@@ -376,10 +413,13 @@ export default function BuilderPage({
   async function handleSave() {
     setSaving(true);
     try {
-      if (id) {
-        await updateRoutine(id, draft, currentUser);
+      if (editingId) {
+        await updateRoutine(editingId, draft, currentUser);
       } else if (routineGymId) {
-        await createRoutine(draft, routineGymId, currentUser);
+        const lineage = previousVersion
+          ? { planId: previousVersion.planId, version: previousVersion.version + 1 }
+          : undefined;
+        await createRoutine(draft, routineGymId, currentUser, lineage);
       }
       dirtyRef.current = false;
       navigate('/');
@@ -399,14 +439,19 @@ export default function BuilderPage({
 
   // A routine has to belong to exactly one gym, and the admin's cross-gym scope doesn't name
   // one — so creating from there is blocked until they pick a gym in the top bar.
-  const noGym = !id && !routineGymId;
+  const noGym = !editingId && !routineGymId;
+
+  // Dates are ISO yyyy-mm-dd strings, so string comparison orders them correctly.
+  const canSave =
+    !!draft.student.trim() && !!draft.startDate && !!draft.endDate && draft.endDate > draft.startDate;
 
   const saveButton = (
     <button
       type="button"
       onClick={() => void handleSave()}
-      disabled={saving}
-      className="bg-red-600 text-white font-bold text-sm px-5 py-2.75 rounded-lg cursor-pointer whitespace-nowrap border-none disabled:opacity-60"
+      disabled={saving || !canSave}
+      title={canSave ? undefined : 'Completá alumno, fecha de inicio y fecha de fin (posterior al inicio)'}
+      className="bg-red-600 text-white font-bold text-sm px-5 py-2.75 rounded-lg cursor-pointer whitespace-nowrap border-none disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {saving ? 'Guardando…' : 'Guardar rutina'}
     </button>
@@ -444,7 +489,12 @@ export default function BuilderPage({
   if (mode === 'preview') {
     return (
       <>
-        <Breadcrumb title={builderTitle} isPreview onBuilderClick={() => setMode('builder')} />
+        <Breadcrumb
+          title={builderTitle}
+          isPreview
+          onBuilderClick={() => setMode('builder')}
+          right={versionSelect}
+        />
         <div className="flex-1 p-8 max-w-[1180px] w-full mx-auto flex flex-col gap-5">
           <div className="flex items-end justify-between flex-wrap gap-4">
             <div>
@@ -512,7 +562,7 @@ export default function BuilderPage({
 
   return (
     <>
-      <Breadcrumb title={builderTitle} />
+      <Breadcrumb title={builderTitle} right={versionSelect} />
       <div className="flex-1 p-8 max-w-[1180px] w-full mx-auto flex flex-col gap-6">
         <div className="flex items-end justify-between flex-wrap gap-4">
           <div>
@@ -538,6 +588,15 @@ export default function BuilderPage({
                 Vista previa / PDF
               </div>
             )}
+            {originalRoutine ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/routines/${originalRoutine.id}/new-version`)}
+                className="bg-white border-[1.5px] border-red-600 text-red-600 font-bold text-sm px-[18px] py-2.5 rounded-lg cursor-pointer whitespace-nowrap"
+              >
+                Nueva versión
+              </button>
+            ) : null}
             {saveButton}
           </div>
         </div>
