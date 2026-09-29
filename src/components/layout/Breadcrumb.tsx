@@ -1,19 +1,23 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeftIcon } from './icons';
 
 interface BreadcrumbProps {
   title: string;
   isPreview?: boolean;
   onBuilderClick?: () => void;
+  /** Right-aligned slot (e.g. the version selector). */
+  right?: ReactNode;
 }
 
-export default function Breadcrumb({ title, isPreview, onBuilderClick }: BreadcrumbProps) {
+export default function Breadcrumb({ title, isPreview, onBuilderClick, right }: BreadcrumbProps) {
   return (
     <div className="flex items-center gap-2.5 px-8 py-3.5 bg-stone-100 border-b border-stone-200">
       <Link
         to="/"
         className="flex items-center gap-1.5 text-[13.5px] font-semibold text-stone-500 no-underline"
       >
-        <span className="text-base">&lt;</span> Rutinas
+        <ChevronLeftIcon className="text-base" /> Rutinas
       </Link>
       {isPreview && onBuilderClick ? (
         <>
@@ -36,6 +40,7 @@ export default function Breadcrumb({ title, isPreview, onBuilderClick }: Breadcr
           <div className="text-[13.5px] font-bold text-stone-900">{title}</div>
         </>
       )}
+      {right}
     </div>
   );
 }

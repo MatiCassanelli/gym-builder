@@ -5,6 +5,7 @@ import ProfileModal from './ProfileModal';
 import { signOutUser } from '../../services/authService';
 import { useAppData } from '../../context/AppDataContext';
 import { APP_NAME, gymBranding } from '../../lib/branding';
+import { ChevronDownIcon } from './icons';
 
 const tabBase = 'px-4.5 py-2.25 rounded-lg font-semibold text-[13.5px] cursor-pointer transition-colors';
 const tabActive = 'bg-white text-red-600 shadow-sm';
@@ -28,7 +29,7 @@ function GymScopePicker() {
         <span className="font-semibold text-[13px] text-stone-700 max-w-[180px] truncate">
           {activeGym ? activeGym.name : 'Todos los gimnasios'}
         </span>
-        <span className="text-stone-400 text-[10px]">▼</span>
+        <ChevronDownIcon className="text-stone-400 text-xs" />
       </button>
 
       {open ? (

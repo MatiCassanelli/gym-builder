@@ -195,7 +195,13 @@ export function normalizeRoutineInput(
 }
 
 export function normalizeRoutine(routine: Routine): Routine {
-  return { ...routine, ...normalizeRoutineInput(routine) };
+  return {
+    ...routine,
+    ...normalizeRoutineInput(routine),
+    // Docs written before versioning have neither field: each is the first version of its own plan.
+    planId: routine.planId ?? routine.id,
+    version: routine.version ?? 1,
+  };
 }
 
 export function blankRoutineInput(exercises: Exercise[] = []): RoutineInput {

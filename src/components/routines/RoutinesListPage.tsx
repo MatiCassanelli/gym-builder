@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RoutineListItem from './RoutineListItem';
+import { latestVersions, versionsOf } from '../../lib/planVersions';
 import { deleteRoutine } from '../../services/routinesService';
 import { useAppData } from '../../context/AppDataContext';
 import type { Trainer, Routine, UserRef } from '../../types';
@@ -44,6 +45,10 @@ export default function RoutinesListPage({
   );
   const [search, setSearch] = useState('');
 
+  // The list shows plans, not every stored version: only the latest of each is listed, filtered
+  // and counted (and so owned, for the trainer chips, by whoever authored that latest one).
+  const plans = useMemo(() => latestVersions(routines), [routines]);
+
   // Own profile pinned first (labeled "(yo)"), the rest of the shared trainer table
   // follows alphabetically — chips reflect the trainer roster in Firestore, not just
   // whoever happens to have authored a routine. Trainers flagged skipFromFilters are
@@ -58,9 +63,9 @@ export default function RoutinesListPage({
     return ordered.map((p) => ({
       id: p.id,
       label: p.id === currentUser.uid ? `${trainerName(p)} (yo)` : trainerName(p),
-      count: routines.filter((r) => r.createdBy.uid === p.id).length,
+      count: plans.filter((r) => r.createdBy.uid === p.id).length,
     }));
-  }, [trainers, routines, currentUser.uid]);
+  }, [trainers, plans, currentUser.uid]);
 
   const selectedTrainer = trainers.find((p) => p.id === selectedTrainerId);
   const title = titleFor(selectedTrainerId, currentUser.uid, selectedTrainer);
@@ -76,15 +81,19 @@ export default function RoutinesListPage({
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return routines
+    return plans
       .filter((r) => selectedTrainerId === 'all' || r.createdBy.uid === selectedTrainerId)
       .filter((r) => !term || r.student.toLowerCase().includes(term));
-  }, [routines, selectedTrainerId, search]);
+  }, [plans, selectedTrainerId, search]);
 
   const sorted = useMemo(
     () => [...filtered].sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999')),
     [filtered],
   );
+
+  const previousVersionCount = routineToDelete
+    ? versionsOf(routines, routineToDelete.planId).length - 1
+    : 0;
 
   async function handleConfirmDelete() {
     if (!routineToDelete) return;
@@ -162,7 +171,7 @@ export default function RoutinesListPage({
               : 'bg-white border-stone-300 text-stone-700'
           }`}
         >
-          Todos ({routines.length})
+          Todos ({plans.length})
         </button>
         {trainerChips.map((p) => (
           <button
@@ -197,6 +206,12 @@ export default function RoutinesListPage({
               <strong>{routineToDelete.student || 'este alumno'}</strong>? Esta acción no se puede
               deshacer.
             </div>
+            {previousVersionCount > 0 ? (
+              <div className="text-[13px] text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
+                Se elimina solo esta versión (v{routineToDelete.version}). La versión anterior vuelve
+                a quedar vigente.
+              </div>
+            ) : null}
             <div className="flex gap-2.5 mt-2">
               <button
                 type="button"

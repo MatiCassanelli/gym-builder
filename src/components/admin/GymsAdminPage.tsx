@@ -6,6 +6,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { useTrainers } from '../../hooks/useTrainers';
 import { ROLE_LABELS } from '../../types';
 import type { Trainer } from '../../types';
+import { ChevronRightIcon } from '../layout/icons';
 
 // A gym starts with one coordinator but its coordinators can promote others, so this
 // summarises rather than naming a single person.
@@ -89,7 +90,7 @@ export default function GymsAdminPage() {
                     {coordinatorsSummary(gymTrainers)}
                   </div>
                 </div>
-                <div className="text-stone-400 text-lg shrink-0">&gt;</div>
+                <ChevronRightIcon className="text-stone-400 text-lg shrink-0" />
               </Link>
             );
           })}
