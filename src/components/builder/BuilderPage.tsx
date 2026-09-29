@@ -32,6 +32,7 @@ import type {
   UserRef,
   WarmupPhaseKey,
 } from '../../types';
+import { ChevronLeftIcon } from '../layout/icons';
 
 interface BuilderPageProps {
   routines: Routine[];
@@ -510,9 +511,9 @@ export default function BuilderPage({
               <button
                 type="button"
                 onClick={() => setMode('builder')}
-                className="bg-white border-[1.5px] border-red-600 text-red-600 font-bold text-sm px-[18px] py-2.5 rounded-lg cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 bg-white border-[1.5px] border-red-600 text-red-600 font-bold text-sm px-[18px] py-2.5 rounded-lg cursor-pointer whitespace-nowrap"
               >
-                &lt; Volver a la rutina
+                <ChevronLeftIcon /> Volver a la rutina
               </button>
               <button
                 type="button"

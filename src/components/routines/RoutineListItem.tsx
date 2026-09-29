@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDateEs, initialsOf, isExpired } from '../../lib/format';
 import { buildRoutineCopy, createRoutine } from '../../services/routinesService';
 import type { Routine, UserRef } from '../../types';
-import { MoreVerticalIcon } from '../layout/icons';
+import { ChevronRightIcon, MoreVerticalIcon } from '../layout/icons';
 
 interface RoutineListItemProps {
   routine: Routine;
@@ -151,7 +151,7 @@ export default function RoutineListItem({
           </div>
         ) : null}
       </div>
-      <div className="text-stone-400 text-lg shrink-0">&gt;</div>
+      <ChevronRightIcon className="text-stone-400 text-lg shrink-0" />
     </div>
   );
 }

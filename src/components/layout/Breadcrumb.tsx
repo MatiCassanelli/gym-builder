@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeftIcon } from './icons';
 
 interface BreadcrumbProps {
   title: string;
@@ -16,7 +17,7 @@ export default function Breadcrumb({ title, isPreview, onBuilderClick, right }: 
         to="/"
         className="flex items-center gap-1.5 text-[13.5px] font-semibold text-stone-500 no-underline"
       >
-        <span className="text-base">&lt;</span> Rutinas
+        <ChevronLeftIcon className="text-base" /> Rutinas
       </Link>
       {isPreview && onBuilderClick ? (
         <>

@@ -19,6 +19,18 @@ const Icon = ({ children, ...props }: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+export const ChevronLeftIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m15 18-6-6 6-6" />
+  </Icon>
+);
+
+export const ChevronRightIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m9 18 6-6-6-6" />
+  </Icon>
+);
+
 export const ChevronDownIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="m6 9 6 6 6-6" />

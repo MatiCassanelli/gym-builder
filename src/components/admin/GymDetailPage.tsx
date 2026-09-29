@@ -7,6 +7,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { useTrainers } from '../../hooks/useTrainers';
 import { deleteGymWithTrainers, updateGym } from '../../services/gymsService';
 import type { GymInput } from '../../types';
+import { ChevronLeftIcon } from '../layout/icons';
 
 /**
  * The admin's view of one gym. Being a superuser, they get everything a coordinator has here
@@ -76,7 +77,7 @@ export default function GymDetailPage() {
         to="/admin"
         className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-stone-500 no-underline mb-4"
       >
-        <span className="text-base">&lt;</span> Gimnasios
+        <ChevronLeftIcon className="text-base" /> Gimnasios
       </Link>
 
       <div className="flex items-center gap-4 mb-2">
