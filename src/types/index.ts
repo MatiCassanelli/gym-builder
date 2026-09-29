@@ -12,6 +12,7 @@ export const MUSCLE_GROUPS = [
   'Cardio',
   'Movilidad',
   'Activacion',
+  'Ejercicios en Cadena',
 ] as const;
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];

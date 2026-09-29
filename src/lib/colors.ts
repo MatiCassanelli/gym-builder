@@ -145,6 +145,7 @@ export const MUSCLE_GROUP_COLOR: Record<MuscleGroup, string> = {
   Cardio: '#d9d2e9',
   Movilidad: '#ffd966',
   Activacion: '#cccccc',
+  'Ejercicios en Cadena': '#b4a7d6',
 };
 
 function hexToHsl(hex: string): [number, number, number] {
