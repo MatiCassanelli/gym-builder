@@ -22,7 +22,7 @@ import { gymBranding } from '../../lib/branding';
 import type {
   Exercise,
   Gym,
-  Profesor,
+  Trainer,
   Routine,
   RoutineDay,
   RoutineInput,
@@ -33,7 +33,7 @@ import type {
 interface BuilderPageProps {
   routines: Routine[];
   exercises: Exercise[];
-  profesores: Profesor[];
+  trainers: Trainer[];
   currentUser: UserRef;
   gyms: Gym[];
   /** null only for a site admin looking across every gym at once. */
@@ -52,7 +52,7 @@ function initialDraft(id: string | undefined, routines: Routine[], exercises: Ex
 export default function BuilderPage({
   routines,
   exercises,
-  profesores,
+  trainers,
   currentUser,
   gyms,
   activeGymId,
@@ -86,9 +86,9 @@ export default function BuilderPage({
   const originalRoutine = id ? routines.find((r) => r.id === id) : undefined;
   const authorUid = originalRoutine ? originalRoutine.createdBy.uid : currentUser.uid;
   const authorEmail = originalRoutine ? originalRoutine.createdBy.email : currentUser.email;
-  const authorProfesor = profesores.find((p) => p.id === authorUid);
-  const authorName = authorProfesor
-    ? `${authorProfesor.nombre} ${authorProfesor.apellido}`.trim()
+  const authorTrainer = trainers.find((p) => p.id === authorUid);
+  const authorName = authorTrainer
+    ? `${authorTrainer.name} ${authorTrainer.lastName}`.trim()
     : authorEmail;
 
   // An existing routine keeps the gym it was created in — editing it from an admin's other
@@ -399,7 +399,7 @@ export default function BuilderPage({
 
   // A routine has to belong to exactly one gym, and the admin's cross-gym scope doesn't name
   // one — so creating from there is blocked until they pick a gym in the top bar.
-  const sinGimnasio = !id && !routineGymId;
+  const noGym = !id && !routineGymId;
 
   const saveButton = (
     <button
@@ -496,7 +496,7 @@ export default function BuilderPage({
     );
   }
 
-  if (sinGimnasio) {
+  if (noGym) {
     return (
       <>
         <Breadcrumb title={builderTitle} />

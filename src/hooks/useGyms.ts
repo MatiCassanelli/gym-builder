@@ -23,7 +23,7 @@ export function useGyms(gymId: string | null, isAdmin: boolean): { gyms: Gym[]; 
   const scope = scopeKey(gymId, isAdmin);
 
   // A non-admin with no gym assigned has nothing to subscribe to, and nothing to wait for.
-  const nadaQueCargar = !isAdmin && !gymId;
+  const nothingToLoad = !isAdmin && !gymId;
 
   useEffect(() => {
     if (isAdmin) {
@@ -35,6 +35,6 @@ export function useGyms(gymId: string | null, isAdmin: boolean): { gyms: Gym[]; 
     );
   }, [gymId, isAdmin]);
 
-  const loading = !nadaQueCargar && snapshot.scope !== scope;
-  return { gyms: loading || nadaQueCargar ? [] : snapshot.gyms, loading };
+  const loading = !nothingToLoad && snapshot.scope !== scope;
+  return { gyms: loading || nothingToLoad ? [] : snapshot.gyms, loading };
 }

@@ -16,9 +16,9 @@ import type { Gym, GymInput } from '../types';
 const gymsCol = collection(db, 'gyms');
 
 // Admins only — firestore.rules allows listing the whole collection to them alone, so a
-// coordinador/profesor must use subscribeGym with their own gymId instead.
+// coordinator/trainer must use subscribeGym with their own gymId instead.
 export function subscribeGyms(callback: (gyms: Gym[]) => void): () => void {
-  const q = query(gymsCol, orderBy('nombre'));
+  const q = query(gymsCol, orderBy('name'));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Gym));
   });
@@ -61,16 +61,16 @@ export async function deleteGym(id: string): Promise<void> {
 
 /**
  * Removes a gym along with the access records of everyone in it — every gym has a
- * coordinador by construction, so "delete only when empty" would mean never.
+ * coordinator by construction, so "delete only when empty" would mean never.
  *
  * Their Auth accounts survive (the client SDK can't delete those) but have nothing left to
  * read, and their routines are deliberately left in place: erasing a gym's whole training
  * history on a single click is not a call this should make. One batch, so a gym is never
  * left half-staffed if the write fails partway.
  */
-export async function deleteGymWithProfesores(id: string, profesorIds: string[]): Promise<void> {
+export async function deleteGymWithTrainers(id: string, trainerIds: string[]): Promise<void> {
   const batch = writeBatch(db);
-  profesorIds.forEach((uid) => batch.delete(doc(db, 'profesores', uid)));
+  trainerIds.forEach((uid) => batch.delete(doc(db, 'trainers', uid)));
   batch.delete(doc(gymsCol, id));
   await batch.commit();
 }

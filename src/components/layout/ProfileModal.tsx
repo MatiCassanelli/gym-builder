@@ -1,18 +1,18 @@
 import ChangePasswordForm from './ChangePasswordForm';
 import ProfileForm from './ProfileForm';
-import { upsertProfesor } from '../../services/profesoresService';
-import type { Profesor, ProfesorInput } from '../../types';
+import { upsertTrainer } from '../../services/trainersService';
+import type { Trainer, TrainerInput } from '../../types';
 
 interface ProfileModalProps {
   uid: string;
   email: string;
-  profesor: Profesor | null;
+  trainer: Trainer | null;
   onClose: () => void;
 }
 
-export default function ProfileModal({ uid, email, profesor, onClose }: ProfileModalProps) {
-  async function handleSave(input: ProfesorInput) {
-    await upsertProfesor(uid, input);
+export default function ProfileModal({ uid, email, trainer, onClose }: ProfileModalProps) {
+  async function handleSave(input: TrainerInput) {
+    await upsertTrainer(uid, input);
     onClose();
   }
 
@@ -27,10 +27,10 @@ export default function ProfileModal({ uid, email, profesor, onClose }: ProfileM
       >
         <div className="text-[17px] font-extrabold">Mi perfil</div>
         <ProfileForm
-          mail={email}
-          initialNombre={profesor?.nombre}
-          initialApellido={profesor?.apellido}
-          initialFoto={profesor?.foto}
+          email={email}
+          initialName={trainer?.name}
+          initialLastName={trainer?.lastName}
+          initialPhoto={trainer?.photo}
           onSave={handleSave}
           onCancel={onClose}
         />

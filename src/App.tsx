@@ -7,13 +7,13 @@ import ProfileSetupScreen from './components/layout/ProfileSetupScreen';
 import RoutinesListPage from './components/routines/RoutinesListPage';
 import { useAuthUser } from './hooks/useAuthUser';
 import { useGyms } from './hooks/useGyms';
-import { useMyProfesor } from './hooks/useMyProfesor';
+import { useMyTrainer } from './hooks/useMyTrainer';
 import { useRoutines } from './hooks/useRoutines';
 import { useExercises } from './hooks/useExercises';
-import { useProfesores } from './hooks/useProfesores';
+import { useTrainers } from './hooks/useTrainers';
 import { toUserRef } from './services/authService';
 import { AppDataContext, useAppData, type AppData } from './context/AppDataContext';
-import type { Gym, Profesor } from './types';
+import type { Gym, Trainer } from './types';
 
 const ExercisesPage = lazy(() => import('./components/exercises/ExercisesPage'));
 const BuilderPage = lazy(() => import('./components/builder/BuilderPage'));
@@ -22,7 +22,7 @@ const GymDetailPage = lazy(() => import('./components/admin/GymDetailPage'));
 const MyGymPage = lazy(() => import('./components/admin/MyGymPage'));
 
 // Which gym a site admin last chose to look at. Persisted so switching gyms survives a
-// reload; `null`/absent means the "todos los gimnasios" scope.
+// reload; `null`/absent means the "every gym" scope.
 const ADMIN_GYM_KEY = 'gymBuilder.adminGymId';
 
 function readStoredAdminGym(): string | null {
@@ -48,11 +48,11 @@ function LoadingScreen() {
 }
 
 function Layout() {
-  const { routinesError, profesoresError } = useAppData();
+  const { routinesError, trainersError } = useAppData();
   return (
     <div className="min-h-screen flex flex-col">
       <TopNav />
-      {routinesError || profesoresError ? (
+      {routinesError || trainersError ? (
         <div className="bg-red-50 border-b border-red-200 text-red-700 text-[13px] text-center py-2 px-4">
           No pudimos cargar los datos. Probá recargar la página.
         </div>
@@ -62,7 +62,7 @@ function Layout() {
   );
 }
 
-// Routes that only exist for one role: a profesor who types the URL by hand lands back on
+// Routes that only exist for one role: a trainer who types the URL by hand lands back on
 // their routines instead of on a page that would only ever fail against the rules anyway.
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isAdmin } = useAppData();
@@ -71,13 +71,13 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 }
 
 function RoutinesRoute() {
-  const { routines, routinesLoading, currentUser, profesores } = useAppData();
+  const { routines, routinesLoading, currentUser, trainers } = useAppData();
   return (
     <RoutinesListPage
       routines={routines}
       loading={routinesLoading}
       currentUser={currentUser}
-      profesores={profesores}
+      trainers={trainers}
     />
   );
 }
@@ -100,7 +100,7 @@ function ExercisesRoute() {
 // of BuilderPage syncing itself via an effect.
 function BuilderRoute() {
   const { id } = useParams<{ id: string }>();
-  const { routines, routinesLoading, exercises, exercisesLoading, profesores, currentUser, gyms, activeGymId } =
+  const { routines, routinesLoading, exercises, exercisesLoading, trainers, currentUser, gyms, activeGymId } =
     useAppData();
   if (routinesLoading || exercisesLoading) return <PageFallback />;
   return (
@@ -108,7 +108,7 @@ function BuilderRoute() {
       key={id ?? 'new'}
       routines={routines}
       exercises={exercises}
-      profesores={profesores}
+      trainers={trainers}
       currentUser={currentUser}
       gyms={gyms}
       activeGymId={activeGymId}
@@ -175,7 +175,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/gimnasios/:id',
+        path: '/admin/gyms/:id',
         element: (
           <Suspense fallback={<PageFallback />}>
             <GymDetailRoute />
@@ -183,7 +183,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: '/mi-gimnasio',
+        path: '/my-gym',
         element: (
           <Suspense fallback={<PageFallback />}>
             <MyGymPage />
@@ -198,21 +198,21 @@ const router = createBrowserRouter([
 interface AuthenticatedAppProps {
   uid: string;
   email: string;
-  myProfesor: Profesor;
+  myTrainer: Trainer;
   gyms: Gym[];
   gymsLoading: boolean;
 }
 
-function AuthenticatedApp({ uid, email, myProfesor, gyms, gymsLoading }: AuthenticatedAppProps) {
+function AuthenticatedApp({ uid, email, myTrainer, gyms, gymsLoading }: AuthenticatedAppProps) {
   const currentUser = useMemo(() => ({ uid, email }), [uid, email]);
-  const isAdmin = myProfesor.rol === 'admin';
+  const isAdmin = myTrainer.role === 'admin';
   const [adminGymId, setAdminGymId] = useState<string | null>(() => readStoredAdminGym());
 
   // A stored gym that has since been deleted (or a non-admin, who has no say) falls back to
   // the scope their role allows, rather than leaving the app pinned to a gym that's gone.
   const activeGymId = isAdmin
     ? (adminGymId && gyms.some((g) => g.id === adminGymId) ? adminGymId : null)
-    : myProfesor.gymId;
+    : myTrainer.gymId;
 
   const setActiveGymId = useCallback((gymId: string | null) => {
     setAdminGymId(gymId);
@@ -231,7 +231,7 @@ function AuthenticatedApp({ uid, email, myProfesor, gyms, gymsLoading }: Authent
     activeGymId,
   );
   const { exercises, loading: exercisesLoading } = useExercises(true, uid);
-  const { profesores, error: profesoresError } = useProfesores(true, activeGymId);
+  const { trainers, error: trainersError } = useTrainers(true, activeGymId);
   const userLabel = (email[0] ?? '?').toUpperCase();
 
   const appData = useMemo<AppData>(
@@ -241,11 +241,11 @@ function AuthenticatedApp({ uid, email, myProfesor, gyms, gymsLoading }: Authent
       routinesError,
       exercises,
       exercisesLoading,
-      profesores,
-      profesoresError,
+      trainers,
+      trainersError,
       gyms,
       gymsLoading,
-      myProfesor,
+      myTrainer,
       isAdmin,
       activeGymId,
       setActiveGymId,
@@ -259,11 +259,11 @@ function AuthenticatedApp({ uid, email, myProfesor, gyms, gymsLoading }: Authent
       routinesError,
       exercises,
       exercisesLoading,
-      profesores,
-      profesoresError,
+      trainers,
+      trainersError,
       gyms,
       gymsLoading,
-      myProfesor,
+      myTrainer,
       isAdmin,
       activeGymId,
       setActiveGymId,
@@ -280,24 +280,24 @@ function AuthenticatedApp({ uid, email, myProfesor, gyms, gymsLoading }: Authent
   );
 }
 
-function hasCompleteProfile(p: Profesor): boolean {
-  return !!p.nombre?.trim() && !!p.apellido?.trim();
+function hasCompleteProfile(p: Trainer): boolean {
+  return !!p.name?.trim() && !!p.lastName?.trim();
 }
 
 /**
  * Resolves who the signed-in user is before any gym-scoped data is requested. Their
- * profesores/{uid} doc is the access record: without it (or without a gym, for a non-admin)
+ * trainers/{uid} doc is the access record: without it (or without a gym, for a non-admin)
  * there is nothing they're allowed to read, so the app stops here rather than firing queries
  * the rules would reject.
  */
 function SessionGate({ uid, email }: { uid: string; email: string }) {
-  const { profesor, loading } = useMyProfesor(uid);
-  const isAdmin = profesor?.rol === 'admin';
-  const { gyms, loading: gymsLoading } = useGyms(profesor?.gymId ?? null, isAdmin);
+  const { trainer, loading } = useMyTrainer(uid);
+  const isAdmin = trainer?.role === 'admin';
+  const { gyms, loading: gymsLoading } = useGyms(trainer?.gymId ?? null, isAdmin);
 
   if (loading) return <LoadingScreen />;
 
-  if (!profesor) {
+  if (!trainer) {
     return (
       <NoAccessScreen
         title="Tu cuenta todavía no está habilitada"
@@ -306,7 +306,7 @@ function SessionGate({ uid, email }: { uid: string; email: string }) {
     );
   }
 
-  if (!isAdmin && !profesor.gymId) {
+  if (!isAdmin && !trainer.gymId) {
     return (
       <NoAccessScreen
         title="No tenés un gimnasio asignado"
@@ -317,7 +317,7 @@ function SessionGate({ uid, email }: { uid: string; email: string }) {
 
   if (gymsLoading) return <LoadingScreen />;
 
-  if (!hasCompleteProfile(profesor)) {
+  if (!hasCompleteProfile(trainer)) {
     // An admin belongs to no single gym, so their setup screen keeps the neutral app mark.
     return <ProfileSetupScreen uid={uid} email={email} gym={isAdmin ? null : (gyms[0] ?? null)} />;
   }
@@ -326,7 +326,7 @@ function SessionGate({ uid, email }: { uid: string; email: string }) {
     <AuthenticatedApp
       uid={uid}
       email={email}
-      myProfesor={profesor}
+      myTrainer={trainer}
       gyms={gyms}
       gymsLoading={gymsLoading}
     />

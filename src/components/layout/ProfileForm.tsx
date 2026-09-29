@@ -1,29 +1,29 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { resizeImageToDataUrl } from '../../lib/image';
-import type { ProfesorInput } from '../../types';
+import type { TrainerInput } from '../../types';
 
 interface ProfileFormProps {
-  mail: string;
-  initialNombre?: string;
-  initialApellido?: string;
-  initialFoto?: string;
-  onSave: (input: ProfesorInput) => Promise<void>;
+  email: string;
+  initialName?: string;
+  initialLastName?: string;
+  initialPhoto?: string;
+  onSave: (input: TrainerInput) => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
 }
 
 export default function ProfileForm({
-  mail,
-  initialNombre = '',
-  initialApellido = '',
-  initialFoto,
+  email,
+  initialName = '',
+  initialLastName = '',
+  initialPhoto,
   onSave,
   onCancel,
   submitLabel = 'Guardar',
 }: ProfileFormProps) {
-  const [nombre, setNombre] = useState(initialNombre);
-  const [apellido, setApellido] = useState(initialApellido);
-  const [foto, setFoto] = useState<string | undefined>(initialFoto);
+  const [name, setName] = useState(initialName);
+  const [lastName, setLastName] = useState(initialLastName);
+  const [photo, setPhoto] = useState<string | undefined>(initialPhoto);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +31,7 @@ export default function ProfileForm({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      setFoto(await resizeImageToDataUrl(file));
+      setPhoto(await resizeImageToDataUrl(file));
     } catch {
       setError('No pudimos procesar esa imagen. Probá con otra.');
     }
@@ -39,16 +39,16 @@ export default function ProfileForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmedNombre = nombre.trim();
-    const trimmedApellido = apellido.trim();
-    if (!trimmedNombre || !trimmedApellido) {
+    const trimmedName = name.trim();
+    const trimmedLastName = lastName.trim();
+    if (!trimmedName || !trimmedLastName) {
       setError('Completá tu nombre y apellido.');
       return;
     }
     setError(null);
     setSaving(true);
     try {
-      await onSave({ nombre: trimmedNombre, apellido: trimmedApellido, mail, foto });
+      await onSave({ name: trimmedName, lastName: trimmedLastName, email, photo });
     } catch {
       setError('No pudimos guardar tus datos. Probá de nuevo.');
     } finally {
@@ -60,16 +60,16 @@ export default function ProfileForm({
     <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-full bg-stone-200 overflow-hidden flex items-center justify-center shrink-0">
-          {foto ? (
-            <img src={foto} alt="" className="w-full h-full object-cover" />
+          {photo ? (
+            <img src={photo} alt="" className="w-full h-full object-cover" />
           ) : (
             <span className="text-stone-500 text-xl font-bold">
-              {(nombre[0] ?? '?').toUpperCase()}
+              {(name[0] ?? '?').toUpperCase()}
             </span>
           )}
         </div>
         <label className="text-[12.5px] font-semibold text-red-600 cursor-pointer">
-          {foto ? 'Cambiar foto' : 'Subir foto (opcional)'}
+          {photo ? 'Cambiar foto' : 'Subir foto (opcional)'}
           <input
             type="file"
             accept="image/*"
@@ -82,8 +82,8 @@ export default function ProfileForm({
       <div className="flex flex-col gap-1.5">
         <label className="text-[12.5px] font-semibold text-stone-500">Nombre</label>
         <input
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           placeholder="Tu nombre"
           className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm"
         />
@@ -92,8 +92,8 @@ export default function ProfileForm({
       <div className="flex flex-col gap-1.5">
         <label className="text-[12.5px] font-semibold text-stone-500">Apellido</label>
         <input
-          value={apellido}
-          onChange={(e) => setApellido(e.target.value)}
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
           placeholder="Tu apellido"
           className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm"
         />
@@ -102,7 +102,7 @@ export default function ProfileForm({
       <div className="flex flex-col gap-1.5">
         <label className="text-[12.5px] font-semibold text-stone-500">Email</label>
         <input
-          value={mail}
+          value={email}
           disabled
           className="px-3 py-2.5 rounded-lg border border-stone-300 text-sm bg-stone-100 text-stone-500"
         />
