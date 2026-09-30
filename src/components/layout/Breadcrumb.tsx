@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { routinesListPath } from '../../lib/routinesListLocation';
 import { ChevronLeftIcon } from './icons';
 
 interface BreadcrumbProps {
@@ -14,7 +15,7 @@ export default function Breadcrumb({ title, isPreview, onBuilderClick, right }: 
   return (
     <div className="flex items-center gap-2.5 px-8 py-3.5 bg-stone-100 border-b border-stone-200">
       <Link
-        to="/"
+        to={routinesListPath()}
         className="flex items-center gap-1.5 text-[13.5px] font-semibold text-stone-500 no-underline"
       >
         <ChevronLeftIcon className="text-base" /> Rutinas

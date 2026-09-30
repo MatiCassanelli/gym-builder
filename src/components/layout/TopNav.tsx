@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { routinesListPath } from '../../lib/routinesListLocation';
 import GymMark from './GymMark';
 import ProfileModal from './ProfileModal';
 import { signOutUser } from '../../services/authService';
@@ -101,7 +102,10 @@ export default function TopNav() {
       )}
 
       <div className="flex gap-1 bg-stone-100 p-1 rounded-[11px]">
-        <NavLink to="/" className={`${tabBase} ${isRoutinesActive ? tabActive : tabInactive}`}>
+        <NavLink
+          to={location.pathname === '/' ? '/' : routinesListPath()}
+          className={`${tabBase} ${isRoutinesActive ? tabActive : tabInactive}`}
+        >
           Mis rutinas
         </NavLink>
         <NavLink

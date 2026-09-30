@@ -1,7 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import RoutineListItem from './RoutineListItem';
 import { latestVersions, versionsOf } from '../../lib/planVersions';
+import { rememberRoutinesListSearch } from '../../lib/routinesListLocation';
 import { deleteRoutine } from '../../services/routinesService';
 import { useAppData } from '../../context/AppDataContext';
 import type { Trainer, Routine, UserRef } from '../../types';
@@ -13,6 +14,8 @@ interface RoutinesListPageProps {
   trainers: Trainer[];
 }
 
+const ALL_TRAINERS = 'all';
+
 function trainerName(p: Trainer): string {
   return `${p.name} ${p.lastName}`.trim();
 }
@@ -22,7 +25,7 @@ function titleFor(
   currentUserUid: string,
   selectedTrainer: Trainer | undefined,
 ): string {
-  if (selectedTrainerId === 'all') return 'Todas las rutinas';
+  if (selectedTrainerId === ALL_TRAINERS) return 'Todas las rutinas';
   if (selectedTrainerId === currentUserUid) return 'Mis rutinas';
   if (selectedTrainer) return `Rutinas de ${trainerName(selectedTrainer)}`;
   return 'Rutinas';
@@ -38,12 +41,31 @@ export default function RoutinesListPage({
   const { gyms, activeGymId, isAdmin } = useAppData();
   const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // A trainer lands on their own plans; a site admin authors none, so they land on the
-  // whole list instead of on an empty "Mis rutinas".
-  const [selectedTrainerId, setSelectedTrainerId] = useState<string>(
-    isAdmin ? 'all' : currentUser.uid,
-  );
-  const [search, setSearch] = useState('');
+  // Search, trainer chip and tab live in the URL so that opening a routine and coming back
+  // (browser back, breadcrumb or save) lands on the list exactly as it was left. A trainer
+  // lands on their own plans; a site admin authors none, so they land on the whole list
+  // instead of on an empty "Mis rutinas".
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.get('q') ?? '';
+  const selectedTrainerId =
+    searchParams.get('trainer') ?? (isAdmin ? ALL_TRAINERS : currentUser.uid);
+
+  useEffect(() => {
+    rememberRoutinesListSearch(searchParams.size ? `?${searchParams.toString()}` : '');
+  }, [searchParams]);
+
+  const updateParam = (key: string, value: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  const setSearch = (value: string) => updateParam('q', value);
+  const setSelectedTrainerId = (id: string) => updateParam('trainer', id);
 
   // The list shows plans, not every stored version: only the latest of each is listed, filtered
   // and counted (and so owned, for the trainer chips, by whoever authored that latest one).
@@ -82,7 +104,7 @@ export default function RoutinesListPage({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return plans
-      .filter((r) => selectedTrainerId === 'all' || r.createdBy.uid === selectedTrainerId)
+      .filter((r) => selectedTrainerId === ALL_TRAINERS || r.createdBy.uid === selectedTrainerId)
       .filter((r) => !term || r.student.toLowerCase().includes(term));
   }, [plans, selectedTrainerId, search]);
 
@@ -111,7 +133,7 @@ export default function RoutinesListPage({
     listContent = <div className="py-16 text-center text-stone-500 text-sm">Cargando…</div>;
   } else if (sorted.length === 0) {
     const emptyMessage =
-      search.trim() || selectedTrainerId !== 'all'
+      search.trim() || selectedTrainerId !== ALL_TRAINERS
         ? 'No se encontraron rutinas con ese filtro.'
         : 'Todavía no creaste ninguna rutina.';
     listContent = (
@@ -164,9 +186,9 @@ export default function RoutinesListPage({
       <div className="flex flex-wrap gap-2 mb-6">
         <button
           type="button"
-          onClick={() => setSelectedTrainerId('all')}
+          onClick={() => setSelectedTrainerId(ALL_TRAINERS)}
           className={`px-3.5 py-1.75 rounded-full text-[13px] font-semibold cursor-pointer border ${
-            selectedTrainerId === 'all'
+            selectedTrainerId === ALL_TRAINERS
               ? 'bg-red-600 border-red-600 text-white'
               : 'bg-white border-stone-300 text-stone-700'
           }`}
