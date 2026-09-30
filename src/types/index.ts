@@ -66,9 +66,9 @@ export interface RoutineDay {
 }
 
 export const WARMUP_PHASES = [
-  { key: 'movilidad', title: 'Movilidad' },
-  { key: 'activacion', title: 'Activación' },
-  { key: 'especifica', title: 'Entrada en calor específica' },
+  { key: 'mobility', title: 'Movilidad' },
+  { key: 'activation', title: 'Activación' },
+  { key: 'specific', title: 'Entrada en calor específica' },
 ] as const;
 
 export type WarmupPhaseKey = (typeof WARMUP_PHASES)[number]['key'];
@@ -104,6 +104,10 @@ export interface Routine {
   objective: string;
   days: RoutineDay[];
   warmup: RoutineWarmup;
+  /** Id of the first version of this plan; shared by every version. Legacy docs lack it. */
+  planId: string;
+  /** 1, 2, 3… within the plan. Legacy docs lack it and read as 1. */
+  version: number;
   createdBy: UserRef;
   createdAt: number;
   updatedBy: UserRef;
@@ -119,56 +123,56 @@ export type ExerciseBlock =
   | { type: 'single'; entries: [RoutineEntry] }
   | { type: 'superset'; supersetId: string; letter: string; entries: RoutineEntry[] };
 
-// A gym is the tenant boundary: its profesores and routines are invisible to every other
-// gym. The logo rides on the doc as a data URL (same trade-off as profesor photos — no
+// A gym is the tenant boundary: its trainers and routines are invisible to every other
+// gym. The logo rides on the doc as a data URL (same trade-off as trainer photos — no
 // Firebase Storage bucket to provision, and it stays well under the 1MB doc limit once
 // resized by resizeLogoToDataUrl).
 export interface Gym {
   id: string;
-  nombre: string;
+  name: string;
   logo?: string;
   createdAt: number;
   updatedAt: number;
 }
 
-export type GymInput = Pick<Gym, 'nombre' | 'logo'>;
+export type GymInput = Pick<Gym, 'name' | 'logo'>;
 
-// 'admin' is site-wide (sees and edits every gym); 'coordinador' and 'profesor' are both
-// scoped to their own gymId, the coordinador additionally being allowed to edit the gym's
+// 'admin' is site-wide (sees and edits every gym); 'coordinator' and 'trainer' are both
+// scoped to their own gymId, the coordinator additionally being allowed to edit the gym's
 // own name and logo. Enforced in firestore.rules, not just in the UI.
-export const ROLES = ['admin', 'coordinador', 'profesor'] as const;
+export const ROLES = ['admin', 'coordinator', 'trainer'] as const;
 
-export type Rol = (typeof ROLES)[number];
+export type Role = (typeof ROLES)[number];
 
-export const ROL_LABELS: Record<Rol, string> = {
+export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Administrador',
-  coordinador: 'Coordinador',
-  profesor: 'Profesor',
+  coordinator: 'Coordinador',
+  trainer: 'Profesor',
 };
 
-// Document id matches the Firebase Auth uid — one profesor doc per trainer account.
+// Document id matches the Firebase Auth uid — one trainer doc per trainer account.
 // The doc doubles as the access-control record: no doc (or no gym) means no access, and
-// `rol`/`gymId` can only ever be written by an admin.
-export interface Profesor {
+// `role`/`gymId` can only ever be written by an admin.
+export interface Trainer {
   id: string;
-  nombre: string;
-  apellido: string;
-  mail: string;
-  foto?: string;
+  name: string;
+  lastName: string;
+  email: string;
+  photo?: string;
   /** null only for site admins, who aren't tied to any single gym. */
   gymId: string | null;
-  rol: Rol;
-  // When true, this profesor is excluded from the "filter by profesor" chips on the
+  role: Role;
+  // When true, this trainer is excluded from the "filter by trainer" chips on the
   // routines list (e.g. shared/admin accounts that shouldn't show up as a trainer).
   skipFromFilters?: boolean;
 }
 
-export type ProfesorInput = Pick<Profesor, 'nombre' | 'apellido' | 'mail' | 'foto'>;
+export type TrainerInput = Pick<Trainer, 'name' | 'lastName' | 'email' | 'photo'>;
 
 /** What an admin fills in to create a brand-new trainer account (see adminUsersService). */
-export interface NuevoProfesorInput {
-  mail: string;
-  nombre: string;
-  apellido: string;
-  rol: Rol;
+export interface NewTrainerInput {
+  email: string;
+  name: string;
+  lastName: string;
+  role: Role;
 }

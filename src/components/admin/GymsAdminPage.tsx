@@ -1,28 +1,29 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import GymMark from '../layout/GymMark';
-import NuevoGymModal from './NuevoGymModal';
+import NewGymModal from './NewGymModal';
 import { useAppData } from '../../context/AppDataContext';
-import { useProfesores } from '../../hooks/useProfesores';
-import { ROL_LABELS } from '../../types';
-import type { Profesor } from '../../types';
+import { useTrainers } from '../../hooks/useTrainers';
+import { ROLE_LABELS } from '../../types';
+import type { Trainer } from '../../types';
+import { ChevronRightIcon } from '../layout/icons';
 
-// A gym starts with one coordinador but its coordinadores can promote others, so this
+// A gym starts with one coordinator but its coordinators can promote others, so this
 // summarises rather than naming a single person.
-function resumenCoordinadores(profesores: Profesor[]): string {
-  const coords = profesores.filter((p) => p.rol === 'coordinador');
+function coordinatorsSummary(trainers: Trainer[]): string {
+  const coords = trainers.filter((p) => p.role === 'coordinator');
   if (coords.length === 0) return 'Sin coordinador asignado';
   if (coords.length === 1) {
-    return `${ROL_LABELS.coordinador}: ${coords[0].nombre} ${coords[0].apellido}`.trim();
+    return `${ROLE_LABELS.coordinator}: ${coords[0].name} ${coords[0].lastName}`.trim();
   }
   return `${coords.length} coordinadores`;
 }
 
 export default function GymsAdminPage() {
   const { gyms, gymsLoading, routines, activeGymId } = useAppData();
-  // Every profesor across every gym, so each card can show its own headcount and
-  // coordinador without one query per gym.
-  const { profesores } = useProfesores(true, null);
+  // Every trainer across every gym, so each card can show its own headcount and
+  // coordinator without one query per gym.
+  const { trainers } = useTrainers(true, null);
   const [creating, setCreating] = useState(false);
 
   return (
@@ -58,45 +59,45 @@ export default function GymsAdminPage() {
           style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}
         >
           {gyms.map((gym) => {
-            const profes = profesores.filter((p) => p.gymId === gym.id);
+            const gymTrainers = trainers.filter((p) => p.gymId === gym.id);
             // `routines` follows the admin's active scope, so a per-gym count is only
-            // truthful in the "todos los gimnasios" view — omitted otherwise rather than
+            // truthful in the "every gym" view — omitted otherwise rather than
             // rendered as a confident zero.
-            const rutinas =
+            const gymRoutinesCount =
               activeGymId === null ? routines.filter((r) => r.gymId === gym.id).length : null;
 
             return (
               <Link
                 key={gym.id}
-                to={`/admin/gimnasios/${gym.id}`}
+                to={`/admin/gyms/${gym.id}`}
                 className="flex items-center gap-4 bg-white border border-stone-200 rounded-[13px] px-[18px] py-4 no-underline text-inherit"
               >
                 <GymMark
-                  nombre={gym.nombre}
+                  name={gym.name}
                   logo={gym.logo ?? null}
                   size={48}
                   rounded="rounded-xl"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-[15px] truncate">{gym.nombre}</div>
+                  <div className="font-bold text-[15px] truncate">{gym.name}</div>
                   <div className="text-[12.5px] text-stone-500 mt-0.5">
-                    {profes.length} {profes.length === 1 ? 'profesor' : 'profesores'}
-                    {rutinas === null
+                    {gymTrainers.length} {gymTrainers.length === 1 ? 'profesor' : 'profesores'}
+                    {gymRoutinesCount === null
                       ? ''
-                      : ` · ${rutinas} ${rutinas === 1 ? 'rutina' : 'rutinas'}`}
+                      : ` · ${gymRoutinesCount} ${gymRoutinesCount === 1 ? 'rutina' : 'rutinas'}`}
                   </div>
                   <div className="text-[12.5px] text-stone-500 mt-0.5 truncate">
-                    {resumenCoordinadores(profes)}
+                    {coordinatorsSummary(gymTrainers)}
                   </div>
                 </div>
-                <div className="text-stone-400 text-lg shrink-0">&gt;</div>
+                <ChevronRightIcon className="text-stone-400 text-lg shrink-0" />
               </Link>
             );
           })}
         </div>
       )}
 
-      {creating ? <NuevoGymModal onClose={() => setCreating(false)} /> : null}
+      {creating ? <NewGymModal onClose={() => setCreating(false)} /> : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import ProfileModal from './ProfileModal';
 import { signOutUser } from '../../services/authService';
 import { useAppData } from '../../context/AppDataContext';
 import { APP_NAME, gymBranding } from '../../lib/branding';
+import { ChevronDownIcon } from './icons';
 
 const tabBase = 'px-4.5 py-2.25 rounded-lg font-semibold text-[13.5px] cursor-pointer transition-colors';
 const tabActive = 'bg-white text-red-600 shadow-sm';
@@ -24,11 +25,11 @@ function GymScopePicker() {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-stone-200 bg-white cursor-pointer"
       >
-        <GymMark nombre={branding.nombre} logo={branding.logo} size={22} rounded="rounded-[6px]" />
+        <GymMark name={branding.name} logo={branding.logo} size={22} rounded="rounded-[6px]" />
         <span className="font-semibold text-[13px] text-stone-700 max-w-[180px] truncate">
-          {activeGym ? activeGym.nombre : 'Todos los gimnasios'}
+          {activeGym ? activeGym.name : 'Todos los gimnasios'}
         </span>
-        <span className="text-stone-400 text-[10px]">▼</span>
+        <ChevronDownIcon className="text-stone-400 text-xs" />
       </button>
 
       {open ? (
@@ -60,12 +61,12 @@ function GymScopePicker() {
                 }`}
               >
                 <GymMark
-                  nombre={gym.nombre}
+                  name={gym.name}
                   logo={gym.logo ?? null}
                   size={20}
                   rounded="rounded-[5px]"
                 />
-                <span className="truncate">{gym.nombre}</span>
+                <span className="truncate">{gym.name}</span>
               </button>
             ))}
           </div>
@@ -77,14 +78,14 @@ function GymScopePicker() {
 
 export default function TopNav() {
   const location = useLocation();
-  const { currentUser, myProfesor, isAdmin, activeGym } = useAppData();
+  const { currentUser, myTrainer, isAdmin, activeGym } = useAppData();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const isRoutinesActive = location.pathname === '/' || location.pathname.startsWith('/routines');
   const isAdminActive = location.pathname.startsWith('/admin');
-  const isCoordinador = myProfesor.rol === 'coordinador';
+  const isCoordinator = myTrainer.role === 'coordinator';
 
-  const initials = (myProfesor.nombre[0] ?? currentUser.email[0] ?? '?').toUpperCase();
+  const initials = (myTrainer.name[0] ?? currentUser.email[0] ?? '?').toUpperCase();
   const branding = gymBranding(activeGym);
 
   return (
@@ -94,8 +95,8 @@ export default function TopNav() {
         <GymScopePicker />
       ) : (
         <div className="flex items-center gap-2.5 min-w-0">
-          <GymMark nombre={branding.nombre} logo={branding.logo} />
-          <div className="font-extrabold text-lg tracking-tight truncate">{branding.nombre}</div>
+          <GymMark name={branding.name} logo={branding.logo} />
+          <div className="font-extrabold text-lg tracking-tight truncate">{branding.name}</div>
         </div>
       )}
 
@@ -114,9 +115,9 @@ export default function TopNav() {
             Gimnasios
           </NavLink>
         ) : null}
-        {isCoordinador ? (
+        {isCoordinator ? (
           <NavLink
-            to="/mi-gimnasio"
+            to="/my-gym"
             className={({ isActive }) => `${tabBase} ${isActive ? tabActive : tabInactive}`}
           >
             Mi gimnasio
@@ -127,12 +128,12 @@ export default function TopNav() {
       <div className="relative">
         <button
           type="button"
-          title={`${myProfesor.nombre} ${myProfesor.apellido}`.trim() || currentUser.email}
+          title={`${myTrainer.name} ${myTrainer.lastName}`.trim() || currentUser.email}
           onClick={() => setMenuOpen((o) => !o)}
           className="w-[34px] h-[34px] rounded-full bg-stone-200 overflow-hidden flex items-center justify-center font-bold text-[13px] text-stone-700 cursor-pointer border-none"
         >
-          {myProfesor.foto ? (
-            <img src={myProfesor.foto} alt="" className="w-full h-full object-cover" />
+          {myTrainer.photo ? (
+            <img src={myTrainer.photo} alt="" className="w-full h-full object-cover" />
           ) : (
             initials
           )}
@@ -143,7 +144,7 @@ export default function TopNav() {
             <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
             <div className="absolute right-0 mt-2 w-52 bg-white border border-stone-200 rounded-xl shadow-lg py-1.5 z-40">
               <div className="px-4 py-1.5 text-[11.5px] font-semibold text-stone-400 uppercase tracking-wide">
-                {isAdmin ? APP_NAME : branding.nombre}
+                {isAdmin ? APP_NAME : branding.name}
               </div>
               <button
                 type="button"
@@ -174,7 +175,7 @@ export default function TopNav() {
         <ProfileModal
           uid={currentUser.uid}
           email={currentUser.email}
-          profesor={myProfesor}
+          trainer={myTrainer}
           onClose={() => setProfileOpen(false)}
         />
       ) : null}

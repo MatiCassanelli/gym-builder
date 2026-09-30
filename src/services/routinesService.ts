@@ -1,17 +1,22 @@
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
   onSnapshot,
   orderBy,
   query,
+  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
 import { db } from '../firebase/client';
 import { normalizeRoutine, normalizeRoutineInput } from '../lib/routineModel';
 import type { Routine, RoutineInput, UserRef } from '../types';
+
+export interface PlanLineage {
+  planId: string;
+  version: number;
+}
 
 const routinesCol = collection(db, 'routines');
 
@@ -42,15 +47,20 @@ export function subscribeRoutines(
 
 // gymId is passed separately from the editable draft: it's assigned once, at creation, and
 // is never something the builder form can change afterwards.
+// Without a lineage the routine starts a new plan: it is version 1 and its own id is the planId.
 export async function createRoutine(
   input: RoutineInput,
   gymId: string,
   by: UserRef,
+  lineage?: PlanLineage,
 ): Promise<string> {
   const now = Date.now();
-  const ref = await addDoc(routinesCol, {
+  const ref = doc(routinesCol);
+  await setDoc(ref, {
     ...input,
     gymId,
+    planId: lineage?.planId ?? ref.id,
+    version: lineage?.version ?? 1,
     createdBy: by,
     createdAt: now,
     updatedBy: by,

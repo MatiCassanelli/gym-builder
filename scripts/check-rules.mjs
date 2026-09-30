@@ -122,58 +122,58 @@ async function main() {
   const uidProfeIron = uidOf(profeIron);
 
   // Throwaway docs for the staffing tests, cleaned up as they go.
-  const nuevo = (gymId, rol) => ({
-    nombre: { stringValue: 'Test' },
-    apellido: { stringValue: 'Alta' },
-    mail: { stringValue: 'test.alta@test.com' },
+  const draft = (gymId, role) => ({
+    name: { stringValue: 'Test' },
+    lastName: { stringValue: 'Alta' },
+    email: { stringValue: 'test.alta@test.com' },
     gymId: { stringValue: gymId },
-    rol: { stringValue: rol },
+    role: { stringValue: role },
   });
-  const campos = ['nombre', 'apellido', 'mail', 'gymId', 'rol'];
+  const fields = ['name', 'lastName', 'email', 'gymId', 'role'];
 
-  const rutinaForge = await firstRoutineOf(admin, 'forge');
-  const rutinaIron = await firstRoutineOf(admin, 'ironhouse');
+  const routineForge = await firstRoutineOf(admin, 'forge');
+  const routineIron = await firstRoutineOf(admin, 'ironhouse');
 
   console.log('\nProfesor de Forge');
   await check('leer las rutinas de su gimnasio', true, () =>
     query(profeForge, 'routines', [['gymId', 'forge']]),
   );
   await check('listar rutinas sin filtrar por gimnasio', false, () => query(profeForge, 'routines'));
-  await check('leer una rutina de Iron House', false, () => getDoc(profeForge, rutinaIron));
+  await check('leer una rutina de Iron House', false, () => getDoc(profeForge, routineIron));
   await check('listar todos los gimnasios', false, () => query(profeForge, 'gyms'));
   await check('ver el doc de su propio gimnasio', true, () => getDoc(profeForge, 'gyms/forge'));
   await check('ver el doc de Iron House', false, () => getDoc(profeForge, 'gyms/ironhouse'));
   await check('listar los profesores de su gimnasio', true, () =>
-    query(profeForge, 'profesores', [['gymId', 'forge']]),
+    query(profeForge, 'trainers', [['gymId', 'forge']]),
   );
   await check('listar los profesores de Iron House', false, () =>
-    query(profeForge, 'profesores', [['gymId', 'ironhouse']]),
+    query(profeForge, 'trainers', [['gymId', 'ironhouse']]),
   );
   await check('renombrar su gimnasio (no es coordinador)', false, () =>
-    write(profeForge, 'gyms/forge', { nombre: { stringValue: 'Hackeado' } }, ['nombre']),
+    write(profeForge, 'gyms/forge', { name: { stringValue: 'Hackeado' } }, ['name']),
   );
   await check('borrar un ejercicio de la biblioteca', false, () =>
     del(profeForge, 'exercises/no-existe'),
   );
   await check('dar de alta un profesor en su gimnasio', false, () =>
-    write(profeForge, 'profesores/alta-por-profe', nuevo('forge', 'profesor'), campos),
+    write(profeForge, 'trainers/alta-por-profe', draft('forge', 'trainer'), fields),
   );
 
   console.log('\nProfesor de Iron House');
-  await check('leer una rutina de Forge', false, () => getDoc(profeIron, rutinaForge));
+  await check('leer una rutina de Forge', false, () => getDoc(profeIron, routineForge));
   await check('leer las rutinas de su gimnasio', true, () =>
     query(profeIron, 'routines', [['gymId', 'ironhouse']]),
   );
 
   console.log('\nCoordinador de Forge');
   await check('renombrar su propio gimnasio', true, () =>
-    write(coordForge, 'gyms/forge', { nombre: { stringValue: 'Forge Gym & Box' } }, ['nombre']),
+    write(coordForge, 'gyms/forge', { name: { stringValue: 'Forge Gym & Box' } }, ['name']),
   );
   await check('renombrar Iron House', false, () =>
-    write(coordForge, 'gyms/ironhouse', { nombre: { stringValue: 'Hackeado' } }, ['nombre']),
+    write(coordForge, 'gyms/ironhouse', { name: { stringValue: 'Hackeado' } }, ['name']),
   );
   await check('crear un gimnasio nuevo', false, () =>
-    write(coordForge, 'gyms/inventado', { nombre: { stringValue: 'Mío' } }, ['nombre']),
+    write(coordForge, 'gyms/inventado', { name: { stringValue: 'Mío' } }, ['name']),
   );
   await check('leer rutinas de Iron House', false, () =>
     query(coordForge, 'routines', [['gymId', 'ironhouse']]),
@@ -181,43 +181,43 @@ async function main() {
 
   console.log('\nCoordinador de Forge — armar su equipo');
   await check('dar de alta un profesor en su gimnasio', true, () =>
-    write(coordForge, 'profesores/alta-forge', nuevo('forge', 'profesor'), campos),
+    write(coordForge, 'trainers/alta-forge', draft('forge', 'trainer'), fields),
   );
-  await check('quitar a ese profesor', true, () => del(coordForge, 'profesores/alta-forge'));
+  await check('quitar a ese profesor', true, () => del(coordForge, 'trainers/alta-forge'));
   await check('dar de alta un profesor en Iron House', false, () =>
-    write(coordForge, 'profesores/alta-iron', nuevo('ironhouse', 'profesor'), campos),
+    write(coordForge, 'trainers/alta-iron', draft('ironhouse', 'trainer'), fields),
   );
   await check('nombrar otro coordinador en su gimnasio', false, () =>
-    write(coordForge, 'profesores/alta-coord', nuevo('forge', 'coordinador'), campos),
+    write(coordForge, 'trainers/alta-coord', draft('forge', 'coordinator'), fields),
   );
   await check('crear un admin', false, () =>
-    write(coordForge, 'profesores/alta-admin', nuevo('forge', 'admin'), campos),
+    write(coordForge, 'trainers/alta-admin', draft('forge', 'admin'), fields),
   );
-  await check('quitarse a sí mismo', false, () => del(coordForge, `profesores/${uidCoordForge}`));
+  await check('quitarse a sí mismo', false, () => del(coordForge, `trainers/${uidCoordForge}`));
   await check('quitar a otro coordinador de su gimnasio', false, async () => {
-    // A stand-in peer, planted by the admin so the coordinador has someone to try it on.
-    await write(admin, 'profesores/par-coord', nuevo('forge', 'coordinador'), campos);
-    const ok = await del(coordForge, 'profesores/par-coord');
-    await del(admin, 'profesores/par-coord');
+    // A stand-in peer, planted by the admin so the coordinator has someone to try it on.
+    await write(admin, 'trainers/par-coord', draft('forge', 'coordinator'), fields);
+    const ok = await del(coordForge, 'trainers/par-coord');
+    await del(admin, 'trainers/par-coord');
     return ok;
   });
   await check('quitar a un profesor de Iron House', false, () =>
-    del(coordForge, `profesores/${uidProfeIron}`),
+    del(coordForge, `trainers/${uidProfeIron}`),
   );
   await check('quitar a un profesor de su gimnasio', true, async () => {
     // Restored right after, so the rest of the run still has its Forge trainer.
-    const ok = await del(coordForge, `profesores/${uidProfeForge}`);
+    const ok = await del(coordForge, `trainers/${uidProfeForge}`);
     await write(
       admin,
-      `profesores/${uidProfeForge}`,
+      `trainers/${uidProfeForge}`,
       {
-        nombre: { stringValue: 'Alex' },
-        apellido: { stringValue: 'Ortega' },
-        mail: { stringValue: 'profe.forge@test.com' },
+        name: { stringValue: 'Alex' },
+        lastName: { stringValue: 'Ortega' },
+        email: { stringValue: 'profe.forge@test.com' },
         gymId: { stringValue: 'forge' },
-        rol: { stringValue: 'profesor' },
+        role: { stringValue: 'trainer' },
       },
-      campos,
+      fields,
     );
     return ok;
   });
@@ -226,36 +226,36 @@ async function main() {
   await check('ascender a un profesor de su gimnasio a coordinador', true, async () => {
     const ok = await write(
       coordForge,
-      `profesores/${uidProfeForge}`,
-      { rol: { stringValue: 'coordinador' } },
-      ['rol'],
+      `trainers/${uidProfeForge}`,
+      { role: { stringValue: 'coordinator' } },
+      ['role'],
     );
     return ok;
   });
   await check('degradar a ese coordinador de vuelta a profesor', false, () =>
-    write(coordForge, `profesores/${uidProfeForge}`, { rol: { stringValue: 'profesor' } }, ['rol']),
+    write(coordForge, `trainers/${uidProfeForge}`, { role: { stringValue: 'trainer' } }, ['role']),
   );
   await check('(admin) sí puede degradarlo', true, () =>
-    write(admin, `profesores/${uidProfeForge}`, { rol: { stringValue: 'profesor' } }, ['rol']),
+    write(admin, `trainers/${uidProfeForge}`, { role: { stringValue: 'trainer' } }, ['role']),
   );
   await check('ascender a alguien de Iron House', false, () =>
-    write(coordForge, `profesores/${uidProfeIron}`, { rol: { stringValue: 'coordinador' } }, [
-      'rol',
+    write(coordForge, `trainers/${uidProfeIron}`, { role: { stringValue: 'coordinator' } }, [
+      'role',
     ]),
   );
   await check('ascender a alguien directo a admin', false, () =>
-    write(coordForge, `profesores/${uidProfeForge}`, { rol: { stringValue: 'admin' } }, ['rol']),
+    write(coordForge, `trainers/${uidProfeForge}`, { role: { stringValue: 'admin' } }, ['role']),
   );
   await check('cambiarle el mail a un profesor con la excusa del rol', false, () =>
     write(
       coordForge,
-      `profesores/${uidProfeForge}`,
-      { rol: { stringValue: 'coordinador' }, mail: { stringValue: 'robado@test.com' } },
-      ['rol', 'mail'],
+      `trainers/${uidProfeForge}`,
+      { role: { stringValue: 'coordinator' }, email: { stringValue: 'robado@test.com' } },
+      ['role', 'email'],
     ),
   );
   await check('mudar a un profesor a otro gimnasio', false, () =>
-    write(coordForge, `profesores/${uidProfeForge}`, { gymId: { stringValue: 'ironhouse' } }, [
+    write(coordForge, `trainers/${uidProfeForge}`, { gymId: { stringValue: 'ironhouse' } }, [
       'gymId',
     ]),
   );
@@ -263,34 +263,34 @@ async function main() {
 
   console.log('\nEscalada de privilegios');
   await check('un profesor se asciende a admin', false, () =>
-    write(profeForge, `profesores/${uidProfeForge}`, { rol: { stringValue: 'admin' } }, ['rol']),
+    write(profeForge, `trainers/${uidProfeForge}`, { role: { stringValue: 'admin' } }, ['role']),
   );
   await check('un profesor se muda a otro gimnasio', false, () =>
-    write(profeForge, `profesores/${uidProfeForge}`, { gymId: { stringValue: 'ironhouse' } }, [
+    write(profeForge, `trainers/${uidProfeForge}`, { gymId: { stringValue: 'ironhouse' } }, [
       'gymId',
     ]),
   );
   await check('un coordinador se asciende a admin', false, () =>
-    write(coordForge, `profesores/${uidCoordForge}`, { rol: { stringValue: 'admin' } }, ['rol']),
+    write(coordForge, `trainers/${uidCoordForge}`, { role: { stringValue: 'admin' } }, ['role']),
   );
 
   console.log('\nAdmin del sitio');
   await check('listar todos los gimnasios', true, () => query(admin, 'gyms'));
   await check('leer todas las rutinas de una', true, () => query(admin, 'routines'));
-  await check('leer una rutina de cualquier gimnasio', true, () => getDoc(admin, rutinaIron));
+  await check('leer una rutina de cualquier gimnasio', true, () => getDoc(admin, routineIron));
   await check('hacer tareas de coordinador: editar cualquier gimnasio', true, () =>
-    write(admin, 'gyms/ironhouse', { nombre: { stringValue: 'Iron House' } }, ['nombre']),
+    write(admin, 'gyms/ironhouse', { name: { stringValue: 'Iron House' } }, ['name']),
   );
   await check('hacer tareas de coordinador: dar de alta en cualquier gimnasio', true, async () => {
-    const ok = await write(admin, 'profesores/alta-admin', nuevo('ironhouse', 'profesor'), campos);
-    await del(admin, 'profesores/alta-admin');
+    const ok = await write(admin, 'trainers/alta-admin', draft('ironhouse', 'trainer'), fields);
+    await del(admin, 'trainers/alta-admin');
     return ok;
   });
   await check('cambiarle el rol a un profesor', true, () =>
-    write(admin, `profesores/${uidProfeForge}`, { rol: { stringValue: 'profesor' } }, ['rol']),
+    write(admin, `trainers/${uidProfeForge}`, { role: { stringValue: 'trainer' } }, ['role']),
   );
   await check('crear un gimnasio', true, () =>
-    write(admin, 'gyms/alta-admin-test', { nombre: { stringValue: 'Test' } }, ['nombre']),
+    write(admin, 'gyms/alta-admin-test', { name: { stringValue: 'Test' } }, ['name']),
   );
   await check('borrarlo', true, () => del(admin, 'gyms/alta-admin-test'));
 

@@ -32,3 +32,9 @@ dist-ssr
 .firebase
 firebase-debug.log
 firestore-debug.log
+
+# Production data backups (contain real trainer emails/photos) — never commit
+scripts/.backup-*
+
+# Reviewed plan-link proposals (contain student names) — never commit
+scripts/plan-links.json

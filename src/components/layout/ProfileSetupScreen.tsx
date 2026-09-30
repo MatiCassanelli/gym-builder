@@ -1,6 +1,6 @@
 import GymMark from './GymMark';
 import ProfileForm from './ProfileForm';
-import { upsertProfesor } from '../../services/profesoresService';
+import { upsertTrainer } from '../../services/trainersService';
 import { gymBranding } from '../../lib/branding';
 import type { Gym } from '../../types';
 
@@ -12,7 +12,7 @@ interface ProfileSetupScreenProps {
 }
 
 // Mandatory, full-page (no cancel option) — shown instead of the app whenever the signed-in
-// trainer doesn't have their name filled in yet. Saving triggers the profesores/{uid}
+// trainer doesn't have their name filled in yet. Saving triggers the trainers/{uid}
 // subscription (see SessionGate in App.tsx) to update and reactively swap this out for the
 // app. Only the profile fields are written, so the gym and role the admin set stay intact.
 export default function ProfileSetupScreen({ uid, email, gym }: ProfileSetupScreenProps) {
@@ -22,8 +22,8 @@ export default function ProfileSetupScreen({ uid, email, gym }: ProfileSetupScre
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-[380px] bg-white border border-stone-200 rounded-2xl p-8 flex flex-col gap-5">
         <div className="flex items-center gap-2.5">
-          {gym ? <GymMark nombre={branding.nombre} logo={branding.logo} /> : null}
-          <div className="font-extrabold text-lg tracking-tight">{branding.nombre}</div>
+          {gym ? <GymMark name={branding.name} logo={branding.logo} /> : null}
+          <div className="font-extrabold text-lg tracking-tight">{branding.name}</div>
         </div>
 
         <div className="text-sm text-stone-500">
@@ -32,8 +32,8 @@ export default function ProfileSetupScreen({ uid, email, gym }: ProfileSetupScre
         </div>
 
         <ProfileForm
-          mail={email}
-          onSave={(input) => upsertProfesor(uid, input)}
+          email={email}
+          onSave={(input) => upsertTrainer(uid, input)}
           submitLabel="Guardar y continuar"
         />
       </div>

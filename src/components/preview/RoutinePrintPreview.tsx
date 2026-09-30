@@ -177,9 +177,9 @@ export default function RoutinePrintPreview({
       <div className="flex justify-between items-start border-b-2 border-stone-900 pb-4 mb-5">
         <div className="flex items-center gap-3 min-w-0">
           {gym.logo ? (
-            <img src={gym.logo} alt={gym.nombre} className="h-16 w-16 object-contain" />
+            <img src={gym.logo} alt={gym.name} className="h-16 w-16 object-contain" />
           ) : null}
-          <div className="font-extrabold text-lg tracking-tight truncate">{gym.nombre}</div>
+          <div className="font-extrabold text-lg tracking-tight truncate">{gym.name}</div>
         </div>
         <div className="text-right text-xs text-stone-500">
           <div>Emitido: {formatDateEs(todayIso())}</div>
