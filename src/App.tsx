@@ -1,5 +1,12 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
-import { Navigate, Outlet, RouterProvider, createBrowserRouter, useParams } from 'react-router-dom';
+import {
+  Navigate,
+  Outlet,
+  RouterProvider,
+  ScrollRestoration,
+  createBrowserRouter,
+  useParams,
+} from 'react-router-dom';
 import TopNav from './components/layout/TopNav';
 import LoginScreen from './components/layout/LoginScreen';
 import NoAccessScreen from './components/layout/NoAccessScreen';
@@ -60,6 +67,9 @@ function Layout() {
         </div>
       ) : null}
       <Outlet />
+      {/* The list keeps one scroll slot however it is reached (back, breadcrumb, save), so it
+          is always found where it was left; every other page still opens at the top. */}
+      <ScrollRestoration getKey={(location) => (location.pathname === '/' ? 'routines-list' : location.key)} />
     </div>
   );
 }

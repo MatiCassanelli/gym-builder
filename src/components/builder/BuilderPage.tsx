@@ -22,6 +22,7 @@ import {
 import { createRoutine, updateRoutine } from '../../services/routinesService';
 import { exportRoutinePdf } from '../../lib/pdfExport';
 import { gymBranding } from '../../lib/branding';
+import { routinesListPath } from '../../lib/routinesListLocation';
 import type {
   Exercise,
   Gym,
@@ -423,7 +424,7 @@ export default function BuilderPage({
         await createRoutine(draft, routineGymId, currentUser, lineage);
       }
       dirtyRef.current = false;
-      navigate('/');
+      navigate(routinesListPath());
     } finally {
       setSaving(false);
     }
