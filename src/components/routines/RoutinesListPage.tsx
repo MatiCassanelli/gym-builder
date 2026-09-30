@@ -1,7 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import RoutineListItem from './RoutineListItem';
 import { latestVersions, versionsOf } from '../../lib/planVersions';
+import { isExpired } from '../../lib/format';
+import { rememberRoutinesListSearch } from '../../lib/routinesListLocation';
 import { deleteRoutine } from '../../services/routinesService';
 import { useAppData } from '../../context/AppDataContext';
 import type { Trainer, Routine, UserRef } from '../../types';
@@ -13,6 +15,9 @@ interface RoutinesListPageProps {
   trainers: Trainer[];
 }
 
+const ALL_TRAINERS = 'all';
+const EXPIRED_TAB = 'vencidas';
+
 function trainerName(p: Trainer): string {
   return `${p.name} ${p.lastName}`.trim();
 }
@@ -22,7 +27,7 @@ function titleFor(
   currentUserUid: string,
   selectedTrainer: Trainer | undefined,
 ): string {
-  if (selectedTrainerId === 'all') return 'Todas las rutinas';
+  if (selectedTrainerId === ALL_TRAINERS) return 'Todas las rutinas';
   if (selectedTrainerId === currentUserUid) return 'Mis rutinas';
   if (selectedTrainer) return `Rutinas de ${trainerName(selectedTrainer)}`;
   return 'Rutinas';
@@ -38,16 +43,44 @@ export default function RoutinesListPage({
   const { gyms, activeGymId, isAdmin } = useAppData();
   const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // A trainer lands on their own plans; a site admin authors none, so they land on the
-  // whole list instead of on an empty "Mis rutinas".
-  const [selectedTrainerId, setSelectedTrainerId] = useState<string>(
-    isAdmin ? 'all' : currentUser.uid,
-  );
-  const [search, setSearch] = useState('');
+  // Search, trainer chip and tab live in the URL so that opening a routine and coming back
+  // (browser back, breadcrumb or save) lands on the list exactly as it was left. A trainer
+  // lands on their own plans; a site admin authors none, so they land on the whole list
+  // instead of on an empty "Mis rutinas".
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.get('q') ?? '';
+  const selectedTrainerId =
+    searchParams.get('trainer') ?? (isAdmin ? ALL_TRAINERS : currentUser.uid);
+  const showExpired = searchParams.get('tab') === EXPIRED_TAB;
+
+  useEffect(() => {
+    rememberRoutinesListSearch(searchParams.size ? `?${searchParams.toString()}` : '');
+  }, [searchParams]);
+
+  const updateParam = (key: string, value: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  const setSearch = (value: string) => updateParam('q', value);
+  const setSelectedTrainerId = (id: string) => updateParam('trainer', id);
+  const setShowExpired = (expired: boolean) => updateParam('tab', expired ? EXPIRED_TAB : null);
 
   // The list shows plans, not every stored version: only the latest of each is listed, filtered
   // and counted (and so owned, for the trainer chips, by whoever authored that latest one).
   const plans = useMemo(() => latestVersions(routines), [routines]);
+
+  // Expired plans are archived, not deleted: they leave the default list and live in their own
+  // tab, still filterable by trainer and search. Expiry comes from endDate, so nothing is stored.
+  const tabPlans = useMemo(
+    () => plans.filter((r) => isExpired(r.endDate) === showExpired),
+    [plans, showExpired],
+  );
 
   // Own profile pinned first (labeled "(yo)"), the rest of the shared trainer table
   // follows alphabetically — chips reflect the trainer roster in Firestore, not just
@@ -63,9 +96,9 @@ export default function RoutinesListPage({
     return ordered.map((p) => ({
       id: p.id,
       label: p.id === currentUser.uid ? `${trainerName(p)} (yo)` : trainerName(p),
-      count: plans.filter((r) => r.createdBy.uid === p.id).length,
+      count: tabPlans.filter((r) => r.createdBy.uid === p.id).length,
     }));
-  }, [trainers, plans, currentUser.uid]);
+  }, [trainers, tabPlans, currentUser.uid]);
 
   const selectedTrainer = trainers.find((p) => p.id === selectedTrainerId);
   const title = titleFor(selectedTrainerId, currentUser.uid, selectedTrainer);
@@ -79,17 +112,22 @@ export default function RoutinesListPage({
     [gyms],
   );
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return plans
-      .filter((r) => selectedTrainerId === 'all' || r.createdBy.uid === selectedTrainerId)
-      .filter((r) => !term || r.student.toLowerCase().includes(term));
-  }, [plans, selectedTrainerId, search]);
+  // Tab counts follow the trainer and search filters, so each tab says how much is in it.
+  const matchesFilters = (r: Routine) =>
+    (selectedTrainerId === ALL_TRAINERS || r.createdBy.uid === selectedTrainerId) &&
+    (!search.trim() || r.student.toLowerCase().includes(search.trim().toLowerCase()));
+  const activeCount = plans.filter((r) => !isExpired(r.endDate) && matchesFilters(r)).length;
+  const expiredCount = plans.filter((r) => isExpired(r.endDate) && matchesFilters(r)).length;
 
-  const sorted = useMemo(
-    () => [...filtered].sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999')),
-    [filtered],
-  );
+  const sorted = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const byEndDate = (a: Routine, b: Routine) =>
+      (a.endDate || '9999').localeCompare(b.endDate || '9999');
+    return tabPlans
+      .filter((r) => selectedTrainerId === ALL_TRAINERS || r.createdBy.uid === selectedTrainerId)
+      .filter((r) => !term || r.student.toLowerCase().includes(term))
+      .sort(showExpired ? (a, b) => byEndDate(b, a) : byEndDate);
+  }, [tabPlans, selectedTrainerId, search, showExpired]);
 
   const previousVersionCount = routineToDelete
     ? versionsOf(routines, routineToDelete.planId).length - 1
@@ -110,10 +148,12 @@ export default function RoutinesListPage({
   if (loading) {
     listContent = <div className="py-16 text-center text-stone-500 text-sm">Cargando…</div>;
   } else if (sorted.length === 0) {
-    const emptyMessage =
-      search.trim() || selectedTrainerId !== 'all'
-        ? 'No se encontraron rutinas con ese filtro.'
-        : 'Todavía no creaste ninguna rutina.';
+    let emptyMessage = 'Todavía no creaste ninguna rutina.';
+    if (search.trim() || selectedTrainerId !== ALL_TRAINERS) {
+      emptyMessage = 'No se encontraron rutinas con ese filtro.';
+    } else if (showExpired) {
+      emptyMessage = 'No hay rutinas vencidas.';
+    }
     listContent = (
       <div className="py-16 text-center text-stone-500 text-sm border-[1.5px] border-dashed border-stone-300 rounded-xl">
         {emptyMessage}
@@ -141,7 +181,9 @@ export default function RoutinesListPage({
         <div>
           <div className="text-2xl font-extrabold tracking-tight">{title}</div>
           <div className="text-stone-500 text-sm mt-1">
-            Ordenadas por vencimiento — las que están por vencer aparecen primero.
+            {showExpired
+              ? 'Rutinas vencidas, archivadas fuera de la lista principal — las que vencieron hace menos aparecen primero.'
+              : 'Ordenadas por vencimiento — las que están por vencer aparecen primero.'}
           </div>
         </div>
         <button
@@ -151,6 +193,28 @@ export default function RoutinesListPage({
         >
           + Nueva rutina
         </button>
+      </div>
+
+      <div role="tablist" aria-label="Estado de las rutinas" className="inline-flex gap-0.5 bg-stone-100 p-0.5 rounded-lg mb-3.5">
+        {[
+          { expired: false, label: 'Vigentes', count: activeCount },
+          { expired: true, label: 'Vencidas', count: expiredCount },
+        ].map((t) => (
+          <button
+            key={t.label}
+            type="button"
+            role="tab"
+            aria-selected={showExpired === t.expired}
+            onClick={() => setShowExpired(t.expired)}
+            className={`px-3.5 py-1.75 rounded-md text-[13px] font-semibold cursor-pointer border-none ${
+              showExpired === t.expired
+                ? 'bg-white text-stone-900 shadow-sm'
+                : 'bg-transparent text-stone-500'
+            }`}
+          >
+            {t.label} ({t.count})
+          </button>
+        ))}
       </div>
 
       <input
@@ -164,14 +228,14 @@ export default function RoutinesListPage({
       <div className="flex flex-wrap gap-2 mb-6">
         <button
           type="button"
-          onClick={() => setSelectedTrainerId('all')}
+          onClick={() => setSelectedTrainerId(ALL_TRAINERS)}
           className={`px-3.5 py-1.75 rounded-full text-[13px] font-semibold cursor-pointer border ${
-            selectedTrainerId === 'all'
+            selectedTrainerId === ALL_TRAINERS
               ? 'bg-red-600 border-red-600 text-white'
               : 'bg-white border-stone-300 text-stone-700'
           }`}
         >
-          Todos ({plans.length})
+          Todos ({tabPlans.length})
         </button>
         {trainerChips.map((p) => (
           <button
