@@ -3,9 +3,9 @@ import { computeBlocks, supersetHeaderText } from './blocks';
 import { ACCENT, NEUTRAL, WARMUP_PALETTE, dayPalette } from './colors';
 import type { DayPalette } from './colors';
 import {
-  ROW_COLUMN_RATIOS,
   SET_FIELD_ROWS,
   buildWarmupPhases,
+  rowColumnRatios,
   type WarmupPhaseView,
 } from './routineModel';
 import { formatDateEs, todayIso } from './format';
@@ -212,8 +212,9 @@ interface RowLayout {
 }
 
 function layoutExerciseRow(doc: jsPDF, row: PdfRow, width: number): RowLayout {
-  const leftW = width * ROW_COLUMN_RATIOS.left;
-  const midW = width * ROW_COLUMN_RATIOS.mid;
+  const ratios = rowColumnRatios(row.sets.length);
+  const leftW = width * ratios.left;
+  const midW = width * ratios.mid;
   const rightW = width - leftW - midW;
 
   const nameLines = splitLines(doc, row.name, leftW - ROW_PAD * 2, NAME_SIZE, 'bold');
