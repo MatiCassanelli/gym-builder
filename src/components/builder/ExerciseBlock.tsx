@@ -1,6 +1,6 @@
 import { useState, type DragEvent } from 'react';
 import { supersetHeaderText } from '../../lib/blocks';
-import { ROW_COLUMNS_CSS, SET_COUNT_OPTIONS, SET_FIELD_ROWS } from '../../lib/routineModel';
+import { rowColumnsCss, SET_COUNT_OPTIONS, SET_FIELD_ROWS } from '../../lib/routineModel';
 import type { DayPalette } from '../../lib/colors';
 import type {
   Exercise,
@@ -48,7 +48,7 @@ function EntryRow({
   return (
     <div
       className="grid rounded-lg overflow-hidden bg-white"
-      style={{ gridTemplateColumns: ROW_COLUMNS_CSS, border: `1px solid ${palette.border}` }}
+      style={{ gridTemplateColumns: rowColumnsCss(sets.length), border: `1px solid ${palette.border}` }}
     >
       <div
         className="px-3 py-2.5 flex flex-col gap-1.75"

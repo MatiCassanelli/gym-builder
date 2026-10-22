@@ -12,11 +12,11 @@ import type {
   WarmupPhaseKey,
 } from "../types";
 
-// Five columns is what fits the set matrix across an A4 page without shrinking the numbers
-// past legibility, in the editor and in the PDF alike.
-export const MAX_SETS = 5;
+// Up to 10 set columns still fit an A4 page legibly, as long as rows with more than
+// WIDE_MATRIX_FROM sets give the matrix more of the row (see rowColumnRatios).
+export const MAX_SETS = 10;
 
-export const SET_COUNT_OPTIONS = [1, 2, 3, 4, 5];
+export const SET_COUNT_OPTIONS = Array.from({ length: MAX_SETS }, (_, i) => i + 1);
 
 export const DEFAULT_SET: SetSpec = { reps: "10", rir: "2", pause: '90"' };
 
@@ -30,7 +30,18 @@ export const SET_FIELD_ROWS: Array<{ field: keyof SetSpec; label: string }> = [
 // The 25/50/25 exercise-row split — name / set matrix / video+note — shared by the editor,
 // the preview and the PDF export.
 export const ROW_COLUMN_RATIOS = { left: 0.25, mid: 0.5, right: 0.25 } as const;
-export const ROW_COLUMNS_CSS = `${ROW_COLUMN_RATIOS.left * 100}% ${ROW_COLUMN_RATIOS.mid * 100}% ${ROW_COLUMN_RATIOS.right * 100}%`;
+
+// Rows with many sets trade name/note width for matrix width so each set cell stays readable.
+const WIDE_MATRIX_FROM = 8;
+const WIDE_ROW_COLUMN_RATIOS = { left: 0.22, mid: 0.62, right: 0.16 } as const;
+
+export const rowColumnRatios = (setCount: number) =>
+  setCount >= WIDE_MATRIX_FROM ? WIDE_ROW_COLUMN_RATIOS : ROW_COLUMN_RATIOS;
+
+export const rowColumnsCss = (setCount: number): string => {
+  const { left, mid, right } = rowColumnRatios(setCount);
+  return `${left * 100}% ${mid * 100}% ${right * 100}%`;
+};
 
 export function makeSets(
   count: number,

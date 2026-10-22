@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { computeBlocks, supersetHeaderText } from '../../lib/blocks';
 import { ACCENT, NEUTRAL, WARMUP_PALETTE, dayPalette } from '../../lib/colors';
 import type { DayPalette } from '../../lib/colors';
-import { ROW_COLUMNS_CSS, SET_FIELD_ROWS, buildWarmupPhases } from '../../lib/routineModel';
+import { rowColumnsCss, SET_FIELD_ROWS, buildWarmupPhases } from '../../lib/routineModel';
 import { formatDateEs, todayIso } from '../../lib/format';
 import {
   PLAN_FOOTER_NOTE,
@@ -51,7 +51,7 @@ function ExerciseRow({
   const columns = Array.from({ length: row.sets.length }, (_, i) => i);
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: ROW_COLUMNS_CSS, background }}>
+    <div className="grid" style={{ gridTemplateColumns: rowColumnsCss(row.sets.length), background }}>
       <div className="px-2.5 py-2" style={{ borderRight: cellBorder }}>
         <div className="text-xs font-bold leading-tight">{row.name}</div>
         {row.group ? (
